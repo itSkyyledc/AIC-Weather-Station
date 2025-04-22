@@ -11,19 +11,52 @@
         :root {
             --primary-color: #2c3e50;
             --secondary-color: #3498db;
+            --accent-color: #e74c3c;
             --background-color: #f8f9fa;
             --card-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            --transition-speed: 0.3s;
         }
+        
         body {
             background-color: var(--background-color);
             color: var(--primary-color);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-size: 16px;
         }
+
+        .dashboard-header {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            border-radius: 12px;
+            box-shadow: var(--card-shadow);
+        }
+
+        .dashboard-header h1 {
+            font-size: 2.5rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .refresh-controls {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
         .card {
             margin-bottom: 20px;
             box-shadow: var(--card-shadow);
             border: none;
             border-radius: 12px;
+            transition: transform var(--transition-speed);
         }
+
+        .card:hover {
+            transform: translateY(-5px);
+        }
+
         .card-header {
             background-color: white;
             border-bottom: 1px solid rgba(0,0,0,0.05);
@@ -31,205 +64,400 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+            padding: 1rem;
         }
-        .weather-icon {
-            font-size: 2.5em;
-            margin-bottom: 15px;
-            color: var(--secondary-color);
+
+        .card-title {
+            font-size: 1.4rem;
+            font-weight: 600;
+            color: var(--primary-color);
+            margin: 0;
         }
-        .refresh-timer {
-            font-size: 0.8em;
-            color: #666;
+
+        .current-conditions {
+            background: white;
+            border-radius: 12px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: var(--card-shadow);
         }
-        .btn-outline-primary {
-            color: var(--secondary-color);
-            border-color: var(--secondary-color);
-        }
-        .btn-outline-primary:hover {
-            background-color: var(--secondary-color);
-            border-color: var(--secondary-color);
-        }
-        .graph-container {
-            border-radius: 8px;
-            overflow: hidden;
-            min-height: 300px;
-        }
-        .view-toggle {
-            font-size: 0.9em;
-        }
-        .table-view {
-            display: none;
-        }
-        .table-view.active {
-            display: block;
-        }
-        .graph-view.inactive {
-            display: none;
-        }
-        .current-value {
-            font-size: 3.5rem;
+
+        .current-temp {
+            font-size: 5rem;
             font-weight: 300;
-            color: #ff7043;
+            color: var(--accent-color);
+            line-height: 1;
         }
+
         .feels-like {
-            font-size: 0.9rem;
-            color: #666;
+            font-size: 1.2rem;
+            margin-top: 0.5rem;
         }
+
+        .current-details {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1.5rem;
+            margin-top: 2rem;
+        }
+
+        .metric-card {
+            background: var(--background-color);
+            border-radius: 8px;
+            padding: 1rem;
+            text-align: center;
+        }
+
         .metric-label {
-            font-size: 0.85rem;
+            font-size: 1rem;
             color: #666;
             text-transform: uppercase;
             margin-bottom: 0.5rem;
         }
+
         .metric-value {
-            font-size: 1.1rem;
-            font-weight: 500;
+            font-size: 1.8rem;
+            font-weight: 600;
+            color: var(--primary-color);
         }
+
         .metric-unit {
-            font-size: 0.8rem;
+            font-size: 1.1rem;
             color: #666;
         }
-        .gauge-container {
-            position: relative;
-            width: 200px;
-            height: 200px;
-            margin: 0 auto;
-        }
-        .wind-direction {
-            position: relative;
-            width: 150px;
-            height: 150px;
-            border-radius: 50%;
-            background: #f8f9fa;
-            margin: 0 auto;
-        }
-        .direction-arrow {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            width: 0;
-            height: 0;
-            border-left: 8px solid transparent;
-            border-right: 8px solid transparent;
-            border-bottom: 60px solid #3498db;
-            transform-origin: 50% 0;
-            transform: translateX(-50%) rotate(0deg);
-        }
-        .direction-label {
-            position: absolute;
-            font-size: 0.8rem;
-            color: #666;
-        }
-        .direction-label.n { top: 5px; left: 50%; transform: translateX(-50%); }
-        .direction-label.s { bottom: 5px; left: 50%; transform: translateX(-50%); }
-        .direction-label.e { right: 5px; top: 50%; transform: translateY(-50%); }
-        .direction-label.w { left: 5px; top: 50%; transform: translateY(-50%); }
-        .precip-container {
-            width: 40px;
-            height: 100px;
-            background: #f8f9fa;
-            border: 2px solid #dee2e6;
-            border-radius: 20px;
-            margin: 0 auto;
-            position: relative;
-            overflow: hidden;
-        }
-        .precip-level {
-            position: absolute;
-            bottom: 0;
-            width: 100%;
-            background: #3498db;
-            transition: height 0.3s ease;
-        }
-        .pws-conditions {
-            background: #fff;
-            border-radius: 12px;
-            padding: 20px;
-            margin-top: 20px;
-        }
-        .condition-panel {
-            background: #f8f9fa;
+
+        .graph-container {
             border-radius: 8px;
-            padding: 15px;
-            margin-bottom: 15px;
-            height: 100%;  /* Make all panels same height */
+            overflow: hidden;
+            min-height: 300px;
+            background: white;
+            padding: 1rem;
         }
-        .condition-panel h6 {
-            color: #666;
-            margin-bottom: 15px;
-            font-size: 0.9rem;
-            text-transform: uppercase;
+
+        .btn-refresh {
+            background-color: white;
+            color: var(--secondary-color);
+            border: 2px solid var(--secondary-color);
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            transition: all var(--transition-speed);
+            font-size: 1.1rem;
         }
+
+        .btn-refresh:hover {
+            background-color: var(--secondary-color);
+            color: white;
+        }
+
+        .refresh-timer {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            font-size: 1.1rem;
+        }
+
+        .view-toggle {
+            margin-left: auto;
+            padding: 0.75rem 1.5rem;
+            font-size: 1.1rem;
+        }
+
+        .view-toggle button {
+            color: var(--secondary-color);
+            border-color: var(--secondary-color);
+            padding: 0.25rem 0.75rem;
+            font-size: 0.875rem;
+            transition: all var(--transition-speed);
+        }
+
+        .view-toggle button:hover {
+            background-color: var(--secondary-color);
+            color: white;
+        }
+
+        .graph-view {
+            display: block;
+            height: 450px;
+            width: 100%;
+            transition: opacity var(--transition-speed);
+        }
+
+        .graph-view.inactive {
+            display: none;
+        }
+
+        .table-view {
+            display: none;
+            max-height: 400px;
+            overflow-y: auto;
+            transition: opacity var(--transition-speed);
+        }
+
+        .table-view.active {
+            display: block;
+        }
+
+        .table-view table {
+            margin-bottom: 0;
+            width: 100%;
+        }
+
+        .table-view th {
+            position: sticky;
+            top: 0;
+            background: white;
+            z-index: 1;
+            box-shadow: 0 2px 2px rgba(0,0,0,0.05);
+        }
+
+        .summary-section {
+            margin-bottom: 2rem;
+        }
+
+        .summary-section h5 {
+            font-size: 1.4rem;
+            margin-bottom: 1rem;
+        }
+
+        .summary-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            margin-bottom: 2rem;
+        }
+
+        .summary-table th, .summary-table td {
+            font-size: 1.1rem;
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid #eee;
+        }
+
+        .summary-table tr:hover {
+            background-color: var(--background-color);
+        }
+
+        .summary-label {
+            font-weight: 600;
+            color: var(--primary-color);
+        }
+
+        .history-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+        }
+
+        .history-table th {
+            background: var(--background-color);
+            padding: 0.75rem;
+            font-weight: 600;
+            color: var(--primary-color);
+            border-bottom: 2px solid var(--secondary-color);
+            text-align: left;
+            position: sticky;
+            top: 0;
+            z-index: 1;
+        }
+
+        .history-table td {
+            padding: 0.75rem;
+            border-bottom: 1px solid #eee;
+        }
+
+        .history-table tr:hover {
+            background-color: var(--background-color);
+        }
+
+        .card-body {
+            padding: 2rem;
+            min-height: 500px;
+        }
+
+        .comprehensive-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            margin-top: 1rem;
+        }
+
+        .comprehensive-table th {
+            background: var(--background-color);
+            padding: 1rem;
+            text-align: left;
+            font-weight: 600;
+            color: var(--primary-color);
+            border-bottom: 2px solid var(--secondary-color);
+            font-size: 1.2rem;
+        }
+
+        .comprehensive-table td {
+            padding: 1rem;
+            border-bottom: 1px solid #eee;
+            font-size: 1.1rem;
+        }
+
+        .comprehensive-table tr:hover {
+            background-color: var(--background-color);
+        }
+
+        .comprehensive-table .time-column {
+            white-space: nowrap;
+        }
+
+        .comprehensive-table .value-column {
+            text-align: right;
+        }
+
+        .table {
+            margin-bottom: 0;
+        }
+
+        .table th {
+            background: var(--background-color);
+            border-top: none;
+        }
+
+        .export-section {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-top: 2rem;
+            box-shadow: var(--card-shadow);
+        }
+
+        .btn-export {
+            background-color: var(--secondary-color);
+            color: white;
+            padding: 1rem 2rem;
+            border-radius: 8px;
+            transition: all var(--transition-speed);
+            font-size: 1.2rem;
+        }
+
+        .btn-export:hover {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
         @media (max-width: 768px) {
-            .current-value {
-                font-size: 2.5rem;
+            .current-temp {
+                font-size: 4rem;
             }
-            .gauge-container {
-                width: 150px;
-                height: 150px;
+            
+            .current-details {
+                grid-template-columns: repeat(2, 1fr);
             }
-            .wind-direction {
-                width: 120px;
-                height: 120px;
-            }
-            .direction-arrow {
-                border-bottom: 45px solid #3498db;
-            }
-            .container-fluid {
-                padding-left: 10px;
-                padding-right: 10px;
-            }
-            .card-body {
+            
+            .dashboard-header {
                 padding: 1rem;
             }
-            .pws-conditions {
-                padding: 10px;
+            
+            .dashboard-header h1 {
+                font-size: 2rem;
             }
-            .condition-panel {
-                margin-bottom: 10px;
+
+            body {
+                font-size: 14px;
             }
+        }
+
+        #table-view-container {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin: 1rem 0;
+            box-shadow: var(--card-shadow);
+        }
+
+        .comprehensive-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+        }
+
+        .comprehensive-table th {
+            background: var(--background-color);
+            padding: 0.75rem;
+            text-align: left;
+            font-weight: 600;
+            color: var(--primary-color);
+            border-bottom: 2px solid var(--secondary-color);
+            position: sticky;
+            top: 0;
+            z-index: 1;
+        }
+
+        .comprehensive-table td {
+            padding: 0.75rem;
+            border-bottom: 1px solid #eee;
+        }
+
+        .comprehensive-table tr:hover {
+            background-color: var(--background-color);
+        }
+
+        .view-toggle {
+            padding: 0.5rem 1rem;
+            font-size: 0.9rem;
+            transition: all var(--transition-speed);
+        }
+
+        .view-toggle:hover {
+            background-color: var(--secondary-color);
+            color: white;
+            border-color: var(--secondary-color);
         }
     </style>
 </head>
 <body>
     <div class="container-fluid py-4">
-        <h1 class="mb-4">Weather Station Dashboard
-            <small class="refresh-timer">Next update in <span id="countdown">300</span>s</small>
-            <button class="btn btn-sm btn-outline-primary" onclick="fetchData()">
-                <i class="fas fa-sync-alt"></i> Refresh Now
-            </button>
-        </h1>
-
-        <div class="row">
-            <!-- Current Conditions -->
-            <div class="col-md-6">
-                <div class="card">
-                    <div class="card-header">
-                        <h5 class="card-title mb-0">CURRENT CONDITIONS</h5>
+        <div class="dashboard-header">
+            <div class="d-flex justify-content-between align-items-center">
+                <h1>Weather Station Dashboard</h1>
+                <div class="refresh-controls">
+                    <div class="refresh-timer">
+                        <i class="fas fa-clock"></i> Next update in <span id="countdown">300</span>s
                     </div>
-                    <div class="card-body">
-                        <div class="row align-items-center mb-4">
-                            <div class="col-6 text-center">
-                                <div class="current-value" id="current-temp">--.-</div>
+                    <button class="btn btn-refresh" onclick="fetchData()">
+                        <i class="fas fa-sync-alt"></i> Refresh Now
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="d-flex justify-content-end mb-3">
+            <button class="btn btn-outline-secondary view-toggle" onclick="toggleViewMode()">
+                <i class="fas fa-table"></i> Switch to Table View
+            </button>
+        </div>
+
+        <div id="graph-view-container">
+            <div class="row">
+                <!-- Current Conditions -->
+                <div class="col-md-6">
+                    <div class="current-conditions">
+                        <div class="row align-items-center">
+                            <div class="col-md-6 text-center">
+                                <div class="current-temp" id="current-temp">--.-</div>
                                 <div class="feels-like" id="feels-like">Feels like --.-°</div>
                             </div>
-                            <div class="col-6">
-                                <div class="row">
-                                    <div class="col-6 mb-3">
-                                        <div class="metric-label">DEWPOINT</div>
-                                        <div class="metric-value" id="dewpoint">--.-</div>
-                                    </div>
-                                    <div class="col-6 mb-3">
-                                        <div class="metric-label">HUMIDITY</div>
+                            <div class="col-md-6">
+                                <div class="current-details">
+                                    <div class="metric-card">
+                                        <div class="metric-label">Humidity</div>
                                         <div class="metric-value" id="humidity">--%</div>
                                     </div>
-                                    <div class="col-6">
-                                        <div class="metric-label">PRECIP RATE</div>
-                                        <div class="metric-value" id="precip-rate">-.-- <span class="metric-unit">mm/hr</span></div>
+                                    <div class="metric-card">
+                                        <div class="metric-label">Wind Speed</div>
+                                        <div class="metric-value" id="wind-speed">-- km/h</div>
                                     </div>
-                                    <div class="col-6">
-                                        <div class="metric-label">PRECIP ACCUM</div>
-                                        <div class="metric-value" id="precip-accum">-.-- <span class="metric-unit">mm</span></div>
+                                    <div class="metric-card">
+                                        <div class="metric-label">Pressure</div>
+                                        <div class="metric-value" id="pressure">-- hPa</div>
+                                    </div>
+                                    <div class="metric-card">
+                                        <div class="metric-label">Precipitation</div>
+                                        <div class="metric-value" id="precip-total">-- mm</div>
                                     </div>
                                 </div>
                             </div>
@@ -237,208 +465,252 @@
                     </div>
                 </div>
 
-                <!-- PWS Current Conditions -->
-                <div class="pws-conditions">
-                    <div class="row g-3">
-                        <div class="col-12 col-md-4">
-                            <div class="condition-panel">
-                                <h6>TEMPERATURE</h6>
-                                <div class="gauge-container" id="temp-gauge"></div>
-                                <div class="text-center mt-2">
-                                    <div class="metric-label">DEWPOINT</div>
-                                    <div class="metric-value" id="dewpoint-value">--.-°C</div>
-                                </div>
-                                <div class="text-center">
-                                    <div class="metric-label">HUMIDITY</div>
-                                    <div class="metric-value" id="humidity-value">--%</div>
-                                </div>
-                            </div>
+                <!-- Station Comparison -->
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">Station Comparison</h5>
                         </div>
-                        <div class="col-12 col-md-4">
-                            <div class="condition-panel">
-                                <h6>WIND</h6>
-                                <div class="wind-direction">
-                                    <div class="direction-arrow" id="wind-arrow"></div>
-                                    <div class="direction-label n">N</div>
-                                    <div class="direction-label s">S</div>
-                                    <div class="direction-label e">E</div>
-                                    <div class="direction-label w">W</div>
-                                </div>
-                                <div class="text-center mt-2">
-                                    <div class="metric-label">WIND FROM</div>
-                                    <div class="metric-value" id="wind-direction-value">--</div>
-                                </div>
-                                <div class="text-center">
-                                    <div class="metric-label">GUST</div>
-                                    <div class="metric-value" id="wind-gust-value">-.-- km/h</div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-12 col-md-4">
-                            <div class="condition-panel">
-                                <h6>PRESSURE</h6>
-                                <div class="gauge-container" id="pressure-gauge"></div>
-                                <div class="text-center mt-2">
-                                    <div class="metric-label">CURRENT</div>
-                                    <div class="metric-value" id="pressure-value">----.-- hPa</div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="row mt-3">
-                        <div class="col-12 col-md-4">
-                            <div class="condition-panel">
-                                <h6>PRECIPITATION</h6>
-                                <div class="precip-container">
-                                    <div class="precip-level" id="precip-level"></div>
-                                </div>
-                                <div class="text-center mt-2">
-                                    <div class="metric-label">PRECIP RATE</div>
-                                    <div class="metric-value" id="precip-rate-value">-.-- mm/hr</div>
-                                </div>
-                                <div class="text-center">
-                                    <div class="metric-label">PRECIP TOTAL</div>
-                                    <div class="metric-value" id="precip-total-value">-.-- mm</div>
-                                </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table" id="comparison-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Metric</th>
+                                            <th>Weather Station</th>
+                                            <th>OpenWeatherMap</th>
+                                            <th>Difference</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr><td colspan="4">Loading...</td></tr>
+                                    </tbody>
+                                </table>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Station Comparison -->
-            <div class="col-md-6">
-                <div class="card">
-                    <div class="card-header">
-                        <h5 class="card-title mb-0">Station Comparison</h5>
-                    </div>
-                    <div class="card-body">
-                        <div class="table-responsive">
-                            <table class="table" id="comparison-table">
-                                <thead>
-                                    <tr>
-                                        <th>Metric</th>
-                                        <th>Weather Station</th>
-                                        <th>OpenWeatherMap</th>
-                                        <th>Difference</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr><td colspan="4">Loading...</td></tr>
-                                </tbody>
-                            </table>
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="card-title">Temperature & Dew Point</h5>
+                            <div class="view-toggle">
+                                <button class="btn btn-sm btn-outline-secondary" onclick="toggleView('temp-container')">
+                                    <i class="fas fa-table"></i> Toggle View
+                                </button>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div id="temp-container">
+                                <div class="graph-view" id="temp-graph"></div>
+                                <div class="table-view" id="temp-table"></div>
+                            </div>
                         </div>
                     </div>
                 </div>
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="card-title">Wind Speed & Gust</h5>
+                            <div class="view-toggle">
+                                <button class="btn btn-sm btn-outline-secondary" onclick="toggleView('wind-container')">
+                                    <i class="fas fa-table"></i> Toggle View
+                                </button>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div id="wind-container">
+                                <div class="graph-view" id="wind-graph"></div>
+                                <div class="table-view" id="wind-table"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="card-title">Wind Direction</h5>
+                            <div class="view-toggle">
+                                <button class="btn btn-sm btn-outline-secondary" onclick="toggleView('direction-container')">
+                                    <i class="fas fa-table"></i> Toggle View
+                                </button>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div id="direction-container">
+                                <div class="graph-view" id="direction-graph"></div>
+                                <div class="table-view" id="direction-table"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="card-title">Precipitation</h5>
+                            <div class="view-toggle">
+                                <button class="btn btn-sm btn-outline-secondary" onclick="toggleView('precip-container')">
+                                    <i class="fas fa-table"></i> Toggle View
+                                </button>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div id="precip-container">
+                                <div class="graph-view" id="precip-graph"></div>
+                                <div class="table-view" id="precip-table"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="card-title">Pressure</h5>
+                            <div class="view-toggle">
+                                <button class="btn btn-sm btn-outline-secondary" onclick="toggleView('pressure-container')">
+                                    <i class="fas fa-table"></i> Toggle View
+                                </button>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div id="pressure-container">
+                                <div class="graph-view" id="pressure-graph"></div>
+                                <div class="table-view" id="pressure-table"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="summary-section">
+                <h5 class="mb-3">Summary</h5>
+                <div class="row">
+                    <div class="col-md-6">
+                        <table class="summary-table">
+                            <tr>
+                                <th></th>
+                                <th>High</th>
+                                <th>Low</th>
+                                <th>Average</th>
+                            </tr>
+                            <tr>
+                                <td class="summary-label">Temperature</td>
+                                <td id="temp-high">--°C</td>
+                                <td id="temp-low">--°C</td>
+                                <td id="temp-avg">--°C</td>
+                            </tr>
+                            <tr>
+                                <td class="summary-label">Dew Point</td>
+                                <td id="dew-high">--°C</td>
+                                <td id="dew-low">--°C</td>
+                                <td id="dew-avg">--°C</td>
+                            </tr>
+                            <tr>
+                                <td class="summary-label">Humidity</td>
+                                <td id="humidity-high">--%</td>
+                                <td id="humidity-low">--%</td>
+                                <td id="humidity-avg">--%</td>
+                            </tr>
+                            <tr>
+                                <td class="summary-label">Precipitation</td>
+                                <td id="precip-high">-- mm</td>
+                                <td>--</td>
+                                <td>--</td>
+                            </tr>
+                        </table>
+                    </div>
+                    <div class="col-md-6">
+                        <table class="summary-table">
+                            <tr>
+                                <th></th>
+                                <th>High</th>
+                                <th>Low</th>
+                                <th>Average</th>
+                            </tr>
+                            <tr>
+                                <td class="summary-label">Wind Speed</td>
+                                <td id="wind-high">-- km/h</td>
+                                <td id="wind-low">-- km/h</td>
+                                <td id="wind-avg">-- km/h</td>
+                            </tr>
+                            <tr>
+                                <td class="summary-label">Wind Gust</td>
+                                <td id="gust-high">-- km/h</td>
+                                <td>--</td>
+                                <td id="gust-avg">-- km/h</td>
+                            </tr>
+                            <tr>
+                                <td class="summary-label">Wind Direction</td>
+                                <td>--</td>
+                                <td>--</td>
+                                <td id="wind-dir-avg">--</td>
+                            </tr>
+                            <tr>
+                                <td class="summary-label">Pressure</td>
+                                <td id="pressure-high">-- hPa</td>
+                                <td id="pressure-low">-- hPa</td>
+                                <td>--</td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="table-responsive">
+                <table class="history-table" id="history-table">
+                    <thead>
+                        <tr>
+                            <th>Time</th>
+                            <th>Temperature</th>
+                            <th>Dew Point</th>
+                            <th>Humidity</th>
+                            <th>Wind</th>
+                            <th>Speed</th>
+                            <th>Gust</th>
+                            <th>Pressure</th>
+                            <th>Precip. Rate</th>
+                            <th>Precip. Accum.</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
             </div>
         </div>
 
-        <!-- Graphs -->
-        <div class="row">
-            <div class="col-md-6">
-                <div class="card">
-                    <div class="card-header">
-                        <h5 class="card-title mb-0">Temperature & Dew Point</h5>
-                        <div class="view-toggle">
-                            <button class="btn btn-sm btn-outline-secondary" onclick="toggleView('temp-container')">
-                                <i class="fas fa-table"></i> Toggle View
-                            </button>
-                        </div>
-                    </div>
-                    <div class="card-body">
-                        <div id="temp-container">
-                            <div class="graph-view" id="temp-graph"></div>
-                            <div class="table-view" id="temp-table"></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-6">
-                <div class="card">
-                    <div class="card-header">
-                        <h5 class="card-title mb-0">Wind Speed & Gust</h5>
-                        <div class="view-toggle">
-                            <button class="btn btn-sm btn-outline-secondary" onclick="toggleView('wind-container')">
-                                <i class="fas fa-table"></i> Toggle View
-                            </button>
-                        </div>
-                    </div>
-                    <div class="card-body">
-                        <div id="wind-container">
-                            <div class="graph-view" id="wind-graph"></div>
-                            <div class="table-view" id="wind-table"></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+        <div class="export-section text-center">
+            <a href="/download/csv" class="btn btn-export">
+                <i class="fas fa-download"></i> Export to CSV
+            </a>
         </div>
 
-        <div class="row">
-            <div class="col-md-6">
-                <div class="card">
-                    <div class="card-header">
-                        <h5 class="card-title mb-0">Wind Direction</h5>
-                        <div class="view-toggle">
-                            <button class="btn btn-sm btn-outline-secondary" onclick="toggleView('direction-container')">
-                                <i class="fas fa-table"></i> Toggle View
-                            </button>
-                        </div>
-                    </div>
-                    <div class="card-body">
-                        <div id="direction-container">
-                            <div class="graph-view" id="direction-graph"></div>
-                            <div class="table-view" id="direction-table"></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-6">
-                <div class="card">
-                    <div class="card-header">
-                        <h5 class="card-title mb-0">Precipitation</h5>
-                        <div class="view-toggle">
-                            <button class="btn btn-sm btn-outline-secondary" onclick="toggleView('precip-container')">
-                                <i class="fas fa-table"></i> Toggle View
-                            </button>
-                        </div>
-                    </div>
-                    <div class="card-body">
-                        <div id="precip-container">
-                            <div class="graph-view" id="precip-graph"></div>
-                            <div class="table-view" id="precip-table"></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="row">
-            <div class="col-md-6">
-                <div class="card">
-                    <div class="card-header">
-                        <h5 class="card-title mb-0">Pressure</h5>
-                        <div class="view-toggle">
-                            <button class="btn btn-sm btn-outline-secondary" onclick="toggleView('pressure-container')">
-                                <i class="fas fa-table"></i> Toggle View
-                            </button>
-                        </div>
-                    </div>
-                    <div class="card-body">
-                        <div id="pressure-container">
-                            <div class="graph-view" id="pressure-graph"></div>
-                            <div class="table-view" id="pressure-table"></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Data Export -->
-        <div class="row mt-4">
-            <div class="col-12">
-                <a href="/download/csv" class="btn btn-success">
-                    <i class="fas fa-download"></i> Export to CSV
-                </a>
+        <div id="table-view-container" style="display: none;">
+            <div class="table-responsive">
+                <table class="comprehensive-table">
+                    <thead>
+                        <tr>
+                            <th>Time</th>
+                            <th>Temperature (°C)</th>
+                            <th>Dew Point (°C)</th>
+                            <th>Humidity (%)</th>
+                            <th>Wind Direction</th>
+                            <th>Wind Speed (km/h)</th>
+                            <th>Wind Gust (km/h)</th>
+                            <th>Pressure (hPa)</th>
+                            <th>Precip. Rate (mm)</th>
+                            <th>Precip. Accum. (mm)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="comprehensive-table-body"></tbody>
+                </table>
             </div>
         </div>
     </div>
@@ -456,50 +728,57 @@
         }
 
         function fetchData() {
-            Promise.all([
-                fetch('/api/current').then(res => res.json()),
-                fetch('/api/history').then(res => res.json())
-            ]).then(([current, history]) => {
-                updateCurrentConditions(current);
-                updateComparison(current);
-                updateGraphs(history);
-            });
+            console.log('Fetching data...');
+            // First force refresh the data
+            fetch('/api/refresh')
+                .then(response => response.json())
+                .then(result => {
+                    console.log('Refresh result:', result);
+                    if (result.status === 'success') {
+                        // Then fetch the updated data
+                        return Promise.all([
+                            fetch('/api/current').then(res => res.json()),
+                            fetch('/api/history').then(res => res.json())
+                        ]);
+                    } else {
+                        throw new Error(result.message);
+                    }
+                })
+                .then(([current, history]) => {
+                    console.log('Current data:', current);
+                    console.log('History data:', history);
+                    updateCurrentConditions(current);
+                    updateComparison(current);
+                    updateGraphs(history);
+                    // Reset countdown
+                    countdown = 300;
+                })
+                .catch(error => {
+                    console.error('Error fetching data:', error);
+                });
         }
 
         function updateCurrentConditions(data) {
+            if (!data || !data.station_data) {
+                console.error('No current data available');
+                return;
+            }
+
             const station = data.station_data;
             
-            // Update main temperature display
-            document.getElementById('current-temp').textContent = `${station.temperature.toFixed(1)}°`;
-            document.getElementById('feels-like').textContent = `Feels like ${station.temperature.toFixed(1)}°`;
-            
-            // Update metrics
-            document.getElementById('dewpoint').textContent = `${station.dew_point.toFixed(1)}°C`;
-            document.getElementById('humidity').textContent = `${station.humidity}%`;
-            document.getElementById('precip-rate').textContent = `${station.precip_rate.toFixed(2)} mm/hr`;
-            document.getElementById('precip-accum').textContent = `${station.precip_total.toFixed(2)} mm`;
-            
-            // Update detailed panels
-            document.getElementById('dewpoint-value').textContent = `${station.dew_point.toFixed(1)}°C`;
-            document.getElementById('humidity-value').textContent = `${station.humidity}%`;
-            document.getElementById('wind-direction-value').textContent = getWindDirection(station.wind_direction);
-            document.getElementById('wind-gust-value').textContent = `${station.wind_gust.toFixed(1)} km/h`;
-            document.getElementById('pressure-value').textContent = `${station.pressure.toFixed(2)} hPa`;
-            document.getElementById('precip-rate-value').textContent = `${station.precip_rate.toFixed(2)} mm/hr`;
-            document.getElementById('precip-total-value').textContent = `${station.precip_total.toFixed(2)} mm`;
-            
-            // Update wind direction arrow
-            document.getElementById('wind-arrow').style.transform = 
-                `translateX(-50%) rotate(${station.wind_direction}deg)`;
-            
-            // Update precipitation level visualization
-            const maxPrecip = 10; // Adjust based on your needs
-            const precipPercent = (station.precip_total / maxPrecip) * 100;
-            document.getElementById('precip-level').style.height = `${Math.min(precipPercent, 100)}%`;
-
-            // Create gauges using Plotly
-            createGauge('temp-gauge', station.temperature, 'Temperature', [0, 50], '°C');
-            createGauge('pressure-gauge', station.pressure, 'Pressure', [950, 1050], 'hPa');
+            try {
+                // Update main temperature display
+                document.getElementById('current-temp').textContent = `${station.temperature.toFixed(1)}°`;
+                document.getElementById('feels-like').textContent = `Feels like ${station.temperature.toFixed(1)}°`;
+                
+                // Update metrics
+                document.getElementById('humidity').textContent = `${station.humidity}%`;
+                document.getElementById('wind-speed').textContent = `${station.wind_speed.toFixed(1)} km/h`;
+                document.getElementById('pressure').textContent = `${station.pressure.toFixed(1)} hPa`;
+                document.getElementById('precip-total').textContent = `${station.precip_total.toFixed(1)} mm`;
+            } catch (error) {
+                console.error('Error updating current conditions:', error);
+            }
         }
 
         function getWindDirection(degrees) {
@@ -509,79 +788,26 @@
             return directions[index];
         }
 
-        function createGauge(elementId, value, title, range, unit) {
-            const data = [{
-                type: 'indicator',
-                mode: 'gauge+number',
-                value: value,
-                title: { text: title, font: { size: 14 } },
-                gauge: {
-                    axis: { range: range, tickwidth: 1 },
-                    bar: { color: '#ff7043' },
-                    bgcolor: 'white',
-                    borderwidth: 2,
-                    bordercolor: '#edf2f7',
-                    steps: [
-                        { range: range, color: '#f8f9fa' }
-                    ]
-                }
-            }];
-
-            const layout = {
-                width: 200,
-                height: 200,
-                margin: { t: 25, r: 25, l: 25, b: 25 },
-                paper_bgcolor: 'white',
-                font: { color: '#2c3e50', family: 'Arial' }
-            };
-
-            Plotly.newPlot(elementId, data, layout, { displayModeBar: false });
-        }
-
-        function updateComparison(data) {
-            const station = data.station_data;
-            const openweather = data.openweather_data;
-            const metrics = [
-                ['Temperature', '°C', 'temperature'],
-                ['Humidity', '%', 'humidity'],
-                ['Wind Speed', 'km/h', 'wind_speed'],
-                ['Pressure', 'hPa', 'pressure']
-            ];
-
-            const rows = metrics.map(([label, unit, key]) => {
-                const stationVal = station[key];
-                const openweatherVal = openweather ? openweather[key] : null;
-                const diff = openweatherVal ? (stationVal - openweatherVal).toFixed(1) : 'N/A';
-                return `
-                    <tr>
-                        <td>${label} (${unit})</td>
-                        <td>${stationVal.toFixed(1)}</td>
-                        <td>${openweatherVal ? openweatherVal.toFixed(1) : 'N/A'}</td>
-                        <td>${diff}</td>
-                    </tr>
-                `;
-            }).join('');
-
-            document.querySelector('#comparison-table tbody').innerHTML = rows;
-        }
-
         const graphConfig = {
             responsive: true,
-            displayModeBar: false,
-            scrollZoom: false
+            displayModeBar: true,
+            displaylogo: false,
+            scrollZoom: true,
+            modeBarButtonsToRemove: ['select2d', 'lasso2d', 'autoScale2d']
         };
 
         const commonLayout = {
             font: {
                 family: 'Arial, sans-serif',
-                color: '#2c3e50'
+                color: '#2c3e50',
+                size: 14
             },
             paper_bgcolor: '#ffffff',
             plot_bgcolor: '#f8f9fa',
             margin: {
                 l: 50,
-                r: 50,
-                t: 30,
+                r: 30,
+                t: 50,
                 b: 50
             },
             xaxis: {
@@ -589,15 +815,15 @@
                 gridcolor: '#edf2f7',
                 tickformat: '%H:%M',
                 tickfont: {
-                    size: 10
+                    size: 12
                 },
-                range: [new Date().setHours(new Date().getHours() - 3), new Date()]  // Show last 3 hours by default
+                range: [new Date().setHours(new Date().getHours() - 3), new Date()]
             },
             yaxis: {
                 showgrid: true,
                 gridcolor: '#edf2f7',
                 tickfont: {
-                    size: 10
+                    size: 12
                 },
                 zeroline: true,
                 zerolinecolor: '#edf2f7'
@@ -609,12 +835,17 @@
                 y: -0.3,
                 xanchor: 'center',
                 x: 0.5
+            },
+            autosize: true,
+            title: {
+                font: {
+                    size: 18
+                }
             }
         };
 
         function formatDate(dateString) {
-            const date = new Date(dateString);
-            return date;
+            return new Date(dateString);
         }
 
         function createTrace(times, values, name, color) {
@@ -635,6 +866,145 @@
                 },
                 hovertemplate: '%{y:.1f}<extra></extra>'
             };
+        }
+
+        function toggleViewMode() {
+            const graphContainer = document.getElementById('graph-view-container');
+            const tableContainer = document.getElementById('table-view-container');
+            const toggleButton = document.querySelector('.view-toggle');
+            
+            if (graphContainer.style.display !== 'none') {
+                // Switch to table view
+                graphContainer.style.display = 'none';
+                tableContainer.style.display = 'block';
+                toggleButton.innerHTML = '<i class="fas fa-chart-line"></i> Switch to Graph View';
+                updateComprehensiveTable({ station_data: weatherData });
+            } else {
+                // Switch to graph view
+                graphContainer.style.display = 'block';
+                tableContainer.style.display = 'none';
+                toggleButton.innerHTML = '<i class="fas fa-table"></i> Switch to Table View';
+                // Trigger Plotly to redraw graphs
+                document.querySelectorAll('[id$="-graph"]').forEach(graph => {
+                    if (graph) {
+                        Plotly.relayout(graph.id, {autosize: true});
+                    }
+                });
+            }
+        }
+
+        let weatherData = [];  // Store the weather data globally
+
+        function updateGraphs(data) {
+            if (!data || !data.station_data || !data.station_data.length) {
+                console.error('No data available for graphs');
+                return;
+            }
+
+            weatherData = data.station_data;  // Store the data globally
+            const stationData = data.station_data;
+            const times = stationData.map(d => formatDate(d.timestamp));
+
+            // Update comprehensive table
+            updateComprehensiveTable(data);
+
+            try {
+                // Temperature and Dew Point
+                const tempTraces = [
+                    createTrace(times, stationData.map(d => d.temperature), 'Temperature', '#e74c3c'),
+                    createTrace(times, stationData.map(d => d.dew_point), 'Dew Point', '#27ae60')
+                ];
+                if (document.getElementById('temp-graph')) {
+                    Plotly.newPlot('temp-graph', tempTraces, {
+                        ...commonLayout,
+                        title: { text: 'Temperature & Dew Point', font: { size: 14 } },
+                        yaxis: { ...commonLayout.yaxis, title: { text: 'Temperature (°C)', font: { size: 12 } } }
+                    }, graphConfig);
+                }
+
+                // Wind Speed and Gust
+                const windTraces = [
+                    createTrace(times, stationData.map(d => d.wind_speed), 'Wind Speed', '#3498db'),
+                    createTrace(times, stationData.map(d => d.wind_gust), 'Wind Gust', '#e67e22')
+                ];
+                if (document.getElementById('wind-graph')) {
+                    Plotly.newPlot('wind-graph', windTraces, {
+                        ...commonLayout,
+                        title: { text: 'Wind Speed & Gust', font: { size: 14 } },
+                        yaxis: { ...commonLayout.yaxis, title: { text: 'Speed (km/h)', font: { size: 12 } } }
+                    }, graphConfig);
+                }
+
+                // Wind Direction
+                const directionTrace = createTrace(times, stationData.map(d => d.wind_direction), 'Direction', '#8e44ad');
+                if (document.getElementById('direction-graph')) {
+                    Plotly.newPlot('direction-graph', [directionTrace], {
+                        ...commonLayout,
+                        title: { text: 'Wind Direction', font: { size: 14 } },
+                        yaxis: { ...commonLayout.yaxis, title: { text: 'Direction (°)', font: { size: 12 } } }
+                    }, graphConfig);
+                }
+
+                // Precipitation
+                const precipTraces = [
+                    createTrace(times, stationData.map(d => d.precip_total), 'Accumulation', '#2980b9'),
+                    createTrace(times, stationData.map(d => d.precip_rate), 'Rate', '#16a085')
+                ];
+                if (document.getElementById('precip-graph')) {
+                    Plotly.newPlot('precip-graph', precipTraces, {
+                        ...commonLayout,
+                        title: { text: 'Precipitation', font: { size: 14 } },
+                        yaxis: { ...commonLayout.yaxis, title: { text: 'Precipitation (mm)', font: { size: 12 } } }
+                    }, graphConfig);
+                }
+
+                // Pressure
+                const pressureTrace = createTrace(times, stationData.map(d => d.pressure), 'Pressure', '#2c3e50');
+                if (document.getElementById('pressure-graph')) {
+                    Plotly.newPlot('pressure-graph', [pressureTrace], {
+                        ...commonLayout,
+                        title: { text: 'Pressure', font: { size: 14 } },
+                        yaxis: { ...commonLayout.yaxis, title: { text: 'Pressure (hPa)', font: { size: 12 } } }
+                    }, graphConfig);
+                }
+
+                // Force a resize event to ensure proper rendering
+                window.dispatchEvent(new Event('resize'));
+            } catch (error) {
+                console.error('Error updating graphs:', error);
+            }
+        }
+
+        function updateComparison(data) {
+            if (!data || !data.station_data || !data.openweather_data) {
+                console.error('Missing data for comparison');
+                return;
+            }
+
+            const station = data.station_data;
+            const openweather = data.openweather_data;
+            const metrics = [
+                ['Temperature', '°C', 'temperature'],
+                ['Humidity', '%', 'humidity'],
+                ['Wind Speed', 'km/h', 'wind_speed'],
+                ['Pressure', 'hPa', 'pressure']
+            ];
+
+            const rows = metrics.map(([label, unit, key]) => {
+                const stationVal = station[key];
+                const openweatherVal = openweather[key];
+                const diff = (stationVal - openweatherVal).toFixed(1);
+                return `
+                    <tr>
+                        <td>${label} (${unit})</td>
+                        <td>${stationVal.toFixed(1)}</td>
+                        <td>${openweatherVal.toFixed(1)}</td>
+                        <td>${diff}</td>
+                    </tr>
+                `;
+            }).join('');
+
+            document.querySelector('#comparison-table tbody').innerHTML = rows;
         }
 
         function createTable(data, columns) {
@@ -665,86 +1035,190 @@
             const container = document.getElementById(containerId);
             const graphView = container.querySelector('.graph-view');
             const tableView = container.querySelector('.table-view');
+            const button = container.parentElement.querySelector('.view-toggle button i');
             
             graphView.classList.toggle('inactive');
             tableView.classList.toggle('active');
+            
+            // Update button icon
+            if (tableView.classList.contains('active')) {
+                button.className = 'fas fa-chart-line';
+            } else {
+                button.className = 'fas fa-table';
+            }
         }
 
-        function updateGraphs(data) {
-            const stationData = data.station_data;
-            const times = stationData.map(d => formatDate(d.timestamp));
+        function updateComprehensiveTable(data) {
+            if (!data || !data.station_data || !data.station_data.length) {
+                console.error('No data available for table');
+                return;
+            }
 
-            // Temperature and Dew Point
-            const tempTraces = [
-                createTrace(times, stationData.map(d => d.temperature), 'Temperature', '#e74c3c'),
-                createTrace(times, stationData.map(d => d.dew_point), 'Dew Point', '#27ae60')
-            ];
-            Plotly.newPlot('temp-graph', tempTraces, {
-                ...commonLayout,
-                yaxis: { ...commonLayout.yaxis, title: { text: 'Temperature (°C)', font: { size: 12 } } }
-            }, graphConfig);
-            document.getElementById('temp-table').innerHTML = '';
-            document.getElementById('temp-table').appendChild(createTable(stationData, [
-                {key: 'temperature', label: 'Temperature', unit: '°C'},
-                {key: 'dew_point', label: 'Dew Point', unit: '°C'}
-            ]));
+            try {
+                // Calculate and update summary
+                const summary = calculateSummary(data.station_data);
+                
+                // Update summary values
+                document.getElementById('temp-high').textContent = `${summary.temperature.high}°C`;
+                document.getElementById('temp-low').textContent = `${summary.temperature.low}°C`;
+                document.getElementById('temp-avg').textContent = `${summary.temperature.avg}°C`;
+                
+                document.getElementById('dew-high').textContent = `${summary.dewPoint.high}°C`;
+                document.getElementById('dew-low').textContent = `${summary.dewPoint.low}°C`;
+                document.getElementById('dew-avg').textContent = `${summary.dewPoint.avg}°C`;
+                
+                document.getElementById('humidity-high').textContent = `${summary.humidity.high}%`;
+                document.getElementById('humidity-low').textContent = `${summary.humidity.low}%`;
+                document.getElementById('humidity-avg').textContent = `${summary.humidity.avg}%`;
+                
+                document.getElementById('wind-high').textContent = `${summary.windSpeed.high} km/h`;
+                document.getElementById('wind-low').textContent = `${summary.windSpeed.low} km/h`;
+                document.getElementById('wind-avg').textContent = `${summary.windSpeed.avg} km/h`;
+                
+                document.getElementById('gust-high').textContent = `${summary.windGust.high} km/h`;
+                document.getElementById('gust-avg').textContent = `${summary.windGust.avg} km/h`;
+                
+                document.getElementById('pressure-high').textContent = `${summary.pressure.high} hPa`;
+                document.getElementById('pressure-low').textContent = `${summary.pressure.low} hPa`;
+                
+                document.getElementById('precip-high').textContent = `${summary.precipitation.high} mm`;
+                
+                document.getElementById('wind-dir-avg').textContent = summary.windDirection.avg;
 
-            // Wind Speed and Gust
-            const windTraces = [
-                createTrace(times, stationData.map(d => d.wind_speed), 'Wind Speed', '#3498db'),
-                createTrace(times, stationData.map(d => d.wind_gust), 'Wind Gust', '#e67e22')
-            ];
-            Plotly.newPlot('wind-graph', windTraces, {
-                ...commonLayout,
-                yaxis: { ...commonLayout.yaxis, title: { text: 'Speed (km/h)', font: { size: 12 } } }
-            }, graphConfig);
-            document.getElementById('wind-table').innerHTML = '';
-            document.getElementById('wind-table').appendChild(createTable(stationData, [
-                {key: 'wind_speed', label: 'Wind Speed', unit: 'km/h'},
-                {key: 'wind_gust', label: 'Wind Gust', unit: 'km/h'}
-            ]));
-
-            // Wind Direction
-            const directionTrace = createTrace(times, stationData.map(d => d.wind_direction), 'Direction', '#8e44ad');
-            Plotly.newPlot('direction-graph', [directionTrace], {
-                ...commonLayout,
-                yaxis: { ...commonLayout.yaxis, title: { text: 'Direction (°)', font: { size: 12 } } }
-            }, graphConfig);
-            document.getElementById('direction-table').innerHTML = '';
-            document.getElementById('direction-table').appendChild(createTable(stationData, [
-                {key: 'wind_direction', label: 'Direction', unit: '°'}
-            ]));
-
-            // Precipitation
-            const precipTraces = [
-                createTrace(times, stationData.map(d => d.precip_total), 'Accumulation', '#2980b9'),
-                createTrace(times, stationData.map(d => d.precip_rate), 'Rate', '#16a085')
-            ];
-            Plotly.newPlot('precip-graph', precipTraces, {
-                ...commonLayout,
-                yaxis: { ...commonLayout.yaxis, title: { text: 'Precipitation (mm)', font: { size: 12 } } }
-            }, graphConfig);
-            document.getElementById('precip-table').innerHTML = '';
-            document.getElementById('precip-table').appendChild(createTable(stationData, [
-                {key: 'precip_total', label: 'Accumulation', unit: 'mm'},
-                {key: 'precip_rate', label: 'Rate', unit: 'mm'}
-            ]));
-
-            // Pressure
-            const pressureTrace = createTrace(times, stationData.map(d => d.pressure), 'Pressure', '#2c3e50');
-            Plotly.newPlot('pressure-graph', [pressureTrace], {
-                ...commonLayout,
-                yaxis: { ...commonLayout.yaxis, title: { text: 'Pressure (hPa)', font: { size: 12 } } }
-            }, graphConfig);
-            document.getElementById('pressure-table').innerHTML = '';
-            document.getElementById('pressure-table').appendChild(createTable(stationData, [
-                {key: 'pressure', label: 'Pressure', unit: 'hPa'}
-            ]));
+                // Update table with sorted data
+                const tableBody = document.getElementById('comprehensive-table-body');
+                tableBody.innerHTML = '';
+                
+                // Sort data in descending order (latest first)
+                const sortedData = [...data.station_data].sort((a, b) => 
+                    new Date(b.timestamp) - new Date(a.timestamp)
+                );
+                
+                sortedData.forEach(d => {
+                    const row = document.createElement('tr');
+                    const time = new Date(d.timestamp).toLocaleTimeString();
+                    row.innerHTML = `
+                        <td>${time}</td>
+                        <td>${d.temperature.toFixed(1)}</td>
+                        <td>${d.dew_point.toFixed(1)}</td>
+                        <td>${d.humidity}</td>
+                        <td>${getWindDirection(d.wind_direction)}</td>
+                        <td>${d.wind_speed.toFixed(1)}</td>
+                        <td>${d.wind_gust.toFixed(1)}</td>
+                        <td>${d.pressure.toFixed(2)}</td>
+                        <td>${d.precip_rate.toFixed(2)}</td>
+                        <td>${d.precip_total.toFixed(2)}</td>
+                    `;
+                    tableBody.appendChild(row);
+                });
+            } catch (error) {
+                console.error('Error updating table:', error);
+            }
         }
 
-        // Initial load
-        fetchData();
-        setInterval(updateCountdown, 1000);
+        function calculateSummary(data) {
+            const summary = {
+                temperature: { high: -Infinity, low: Infinity, total: 0 },
+                dewPoint: { high: -Infinity, low: Infinity, total: 0 },
+                humidity: { high: -Infinity, low: Infinity, total: 0 },
+                windSpeed: { high: -Infinity, low: Infinity, total: 0 },
+                windGust: { high: -Infinity, total: 0 },
+                pressure: { high: -Infinity, low: Infinity },
+                precipitation: { high: -Infinity },
+                windDirection: { total: 0 }
+            };
+
+            data.forEach(d => {
+                // Temperature
+                summary.temperature.high = Math.max(summary.temperature.high, d.temperature);
+                summary.temperature.low = Math.min(summary.temperature.low, d.temperature);
+                summary.temperature.total += d.temperature;
+
+                // Dew Point
+                summary.dewPoint.high = Math.max(summary.dewPoint.high, d.dew_point);
+                summary.dewPoint.low = Math.min(summary.dewPoint.low, d.dew_point);
+                summary.dewPoint.total += d.dew_point;
+
+                // Humidity
+                summary.humidity.high = Math.max(summary.humidity.high, d.humidity);
+                summary.humidity.low = Math.min(summary.humidity.low, d.humidity);
+                summary.humidity.total += d.humidity;
+
+                // Wind Speed
+                summary.windSpeed.high = Math.max(summary.windSpeed.high, d.wind_speed);
+                summary.windSpeed.low = Math.min(summary.windSpeed.low, d.wind_speed);
+                summary.windSpeed.total += d.wind_speed;
+
+                // Wind Gust
+                summary.windGust.high = Math.max(summary.windGust.high, d.wind_gust);
+                summary.windGust.total += d.wind_gust;
+
+                // Pressure
+                summary.pressure.high = Math.max(summary.pressure.high, d.pressure);
+                summary.pressure.low = Math.min(summary.pressure.low, d.pressure);
+
+                // Precipitation
+                summary.precipitation.high = Math.max(summary.precipitation.high, d.precip_total);
+
+                // Wind Direction
+                summary.windDirection.total += d.wind_direction;
+            });
+
+            const count = data.length;
+            return {
+                temperature: {
+                    high: summary.temperature.high.toFixed(1),
+                    low: summary.temperature.low.toFixed(1),
+                    avg: (summary.temperature.total / count).toFixed(1)
+                },
+                dewPoint: {
+                    high: summary.dewPoint.high.toFixed(1),
+                    low: summary.dewPoint.low.toFixed(1),
+                    avg: (summary.dewPoint.total / count).toFixed(1)
+                },
+                humidity: {
+                    high: Math.round(summary.humidity.high),
+                    low: Math.round(summary.humidity.low),
+                    avg: Math.round(summary.humidity.total / count)
+                },
+                windSpeed: {
+                    high: summary.windSpeed.high.toFixed(1),
+                    low: summary.windSpeed.low.toFixed(1),
+                    avg: (summary.windSpeed.total / count).toFixed(1)
+                },
+                windGust: {
+                    high: summary.windGust.high.toFixed(1),
+                    avg: (summary.windGust.total / count).toFixed(1)
+                },
+                pressure: {
+                    high: summary.pressure.high.toFixed(2),
+                    low: summary.pressure.low.toFixed(2)
+                },
+                precipitation: {
+                    high: summary.precipitation.high.toFixed(2)
+                },
+                windDirection: {
+                    avg: getWindDirection(summary.windDirection.total / count)
+                }
+            };
+        }
+
+        // Initial setup
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM loaded, fetching initial data...');
+            fetchData();
+            setInterval(updateCountdown, 1000);
+
+            // Add resize handler for responsive graphs
+            window.addEventListener('resize', function() {
+                const graphIds = ['temp-graph', 'wind-graph', 'direction-graph', 'precip-graph', 'pressure-graph'];
+                graphIds.forEach(id => {
+                    if (document.getElementById(id)) {
+                        Plotly.Plots.resize(document.getElementById(id));
+                    }
+                });
+            });
+        });
     </script>
 </body>
 </html> 
