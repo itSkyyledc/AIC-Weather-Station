@@ -701,6 +701,69 @@
             document.body.removeChild(link);
         }
 
+        function updateVisibilityData() {
+            const canvas = document.getElementById('cameraCanvas');
+            const ctx = canvas.getContext('2d');
+            
+            // Get the current frame data
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const frameData = Array.from(imageData.data);
+            
+            // Collect all ROI data
+            const rois = Array.from(document.querySelectorAll('.roi-item')).map(item => ({
+                id: item.dataset.roiId,
+                label: item.querySelector('.roi-label').textContent,
+                x: parseInt(item.dataset.x),
+                y: parseInt(item.dataset.y),
+                width: parseInt(item.dataset.width),
+                height: parseInt(item.dataset.height),
+                distance: parseFloat(item.dataset.distance)
+            }));
+            
+            // Send data to server
+            fetch('/refresh_camera', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    frame: frameData,
+                    rois: rois
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    console.error('Error updating visibility:', data.error);
+                    return;
+                }
+                
+                // Update max visibility display
+                const maxVisibilityElement = document.getElementById('maxVisibility');
+                if (maxVisibilityElement) {
+                    maxVisibilityElement.textContent = `${data.max_visibility}m`;
+                }
+                
+                // Update individual ROI data
+                data.roi_data.forEach(roi => {
+                    const roiElement = document.querySelector(`[data-roi-id="${roi.id}"]`);
+                    if (roiElement) {
+                        roiElement.querySelector('.roi-visibility').textContent = `${roi.visibility}m`;
+                        roiElement.querySelector('.roi-edge-density').textContent = `${roi.edge_density}%`;
+                    }
+                });
+                
+                // Update timestamp
+                const timestampElement = document.getElementById('lastUpdate');
+                if (timestampElement) {
+                    timestampElement.textContent = data.timestamp;
+                }
+            })
+            .catch(error => {
+                console.error('Error updating visibility:', error);
+            });
+        }
+
         // Initial setup
         document.addEventListener('DOMContentLoaded', function() {
             // Create camera grid
@@ -716,6 +779,9 @@
             
             // Start countdown timer
             setInterval(updateCountdown, 1000);
+
+            // Update visibility data periodically
+            setInterval(updateVisibilityData, 5000);  // Update every 5 seconds
         });
     </script>
 </body>

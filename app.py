@@ -77,84 +77,58 @@ visibility_data = defaultdict(lambda: {
 def calculate_visibility_distance(edge_counts, threshold_percentage=5):
     """Calculate the maximum visibility distance based on ROI edge counts."""
     max_visibility = 0
-    for roi_id, data in sorted(edge_counts.items(), key=lambda x: x[1]['distance'], reverse=True):
-        current_count = data['current_count']
-        initial_count = data['initial_count']
+    for roi_id, data in sorted(edge_counts.items(), key=lambda x: x[1]['distance']):
+        current_edge_density = data['edge_density']
         distance = data['distance']
+        visibility = data['visibility']
         
-        if initial_count > 0:
-            change_percentage = ((initial_count - current_count) / initial_count) * 100
-            if change_percentage <= threshold_percentage:  # If visibility is good enough
-                max_visibility = distance
-                break
+        # Update max visibility based on the highest visibility value
+        max_visibility = max(max_visibility, visibility)
     
     return max_visibility
 
-def calculate_edges(image, roi):
-    """Calculate edge count within an ROI."""
+def calculate_edges(image, roi_coords):
+    """Calculate edge density in the specified ROI."""
     try:
-        x, y, w, h = roi['x'], roi['y'], roi['width'], roi['height']
+        # Extract ROI coordinates
+        x1, y1, x2, y2 = roi_coords
+        roi = image[y1:y2, x1:x2]
         
-        # Ensure ROI coordinates are within image bounds
-        x = max(0, min(x, image.shape[1] - 1))
-        y = max(0, min(y, image.shape[0] - 1))
-        w = min(w, image.shape[1] - x)
-        h = min(h, image.shape[0] - y)
+        # Convert ROI to grayscale
+        gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
         
-        # Extract ROI
-        roi_image = image[y:y+h, x:x+w]
+        # Apply Gaussian blur to reduce noise
+        blurred = cv2.GaussianBlur(gray, (5, 5), 0)
         
-        # Convert to grayscale if needed
-        if len(roi_image.shape) == 3:
-            roi_image = cv2.cvtColor(roi_image, cv2.COLOR_BGR2GRAY)
+        # Apply Canny edge detection
+        edges = cv2.Canny(blurred, 50, 150)
         
-        # Apply preprocessing
-        # 1. Gaussian blur to reduce noise
-        blurred = cv2.GaussianBlur(roi_image, (5, 5), 0)
-        
-        # 2. Adaptive thresholding to handle different lighting conditions
-        thresh = cv2.adaptiveThreshold(blurred, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, 
-                                     cv2.THRESH_BINARY, 11, 2)
-        
-        # 3. Apply Canny edge detection with automatic threshold calculation
-        median = np.median(roi_image)
-        sigma = 0.33
-        lower = int(max(0, (1.0 - sigma) * median))
-        upper = int(min(255, (1.0 + sigma) * median))
-        edges = cv2.Canny(thresh, lower, upper)
-        
-        # Count edges
-        edge_count = cv2.countNonZero(edges)
-        
-        # Normalize by ROI area to get edge density
-        roi_area = w * h
-        edge_density = (edge_count / roi_area) * 1000  # Multiply by 1000 for better scaling
+        # Calculate edge density (percentage of edge pixels)
+        total_pixels = (y2 - y1) * (x2 - x1)
+        edge_pixels = np.count_nonzero(edges)
+        edge_density = (edge_pixels / total_pixels) * 100
         
         return edge_density
         
     except Exception as e:
-        print(f"Error calculating edges: {e}")
+        print(f"Error in calculate_edges: {str(e)}")
         return 0
 
 def calculate_visibility(edge_density, distance):
     """Calculate visibility metric based on edge density and distance."""
     try:
-        # This is a calibrated calculation based on edge density and distance
-        # You may need to adjust these parameters based on your specific requirements
+        # Base visibility on edge density and distance
+        # Higher edge density indicates better visibility
+        # Scale the visibility based on the distance
+        visibility = (edge_density / 100.0) * distance
         
-        # Base visibility calculation
-        # Higher edge density = better visibility
-        # Longer distance with same edge density = worse visibility
-        base_visibility = (edge_density * 100) / (1 + (distance / 1000))
+        # Ensure visibility doesn't exceed the actual distance
+        visibility = min(visibility, distance)
         
-        # Apply non-linear scaling to get more realistic visibility values
-        # This will give a value between 0 and 100
-        visibility = 100 * (1 - np.exp(-base_visibility / 50))
-        
-        return min(max(visibility, 0), 100)  # Clamp between 0-100
+        return round(visibility, 2)
         
     except Exception as e:
-        print(f"Error calculating visibility: {e}")
+        print(f"Error in calculate_visibility: {str(e)}")
         return 0
 
 def get_camera_snapshot(rtsp_url):
@@ -475,95 +449,59 @@ def save_visibility_to_csv(camera_id, visibility_data):
     else:
         df.to_csv(filename, index=False)
 
-@app.route('/api/camera/<camera_id>/refresh', methods=['GET'])
-def refresh_camera(camera_id):
+@app.route('/refresh_camera', methods=['POST'])
+def refresh_camera():
+    """Process new camera frame and calculate visibility metrics for all ROIs."""
     try:
-        # Get new image from camera
-        image_data = get_camera_snapshot(CAMERAS[camera_id]['rtsp_url'])
-        if not image_data:
-            return jsonify({'status': 'error', 'message': 'Failed to capture image'})
+        # Get the frame data
+        frame_data = request.json.get('frame')
+        rois = request.json.get('rois', [])
         
-        # Update camera cache
-        camera_cache[camera_id] = {
-            'image': image_data,
-            'timestamp': datetime.now().isoformat()
-        }
+        # Convert frame data to image
+        frame_array = np.array(frame_data, dtype=np.uint8)
+        frame = cv2.imdecode(frame_array, cv2.IMREAD_COLOR)
         
-        # Convert image bytes to numpy array
-        nparr = np.frombuffer(image_data, np.uint8)
-        image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-        
-        if image is None:
-            return jsonify({'status': 'error', 'message': 'Failed to decode image'})
-        
-        # Calculate visibility metrics for each ROI
-        roi_data = {}
+        # Process each ROI
+        roi_results = []
         max_visibility = 0
-        timestamp = datetime.now().isoformat()
         
-        for roi_id, roi_info in camera_rois[camera_id].items():
-            roi_coords = roi_info['coords']
-            distance = roi_info['distance']
+        for roi in rois:
+            # Extract ROI coordinates and distance
+            roi_coords = (roi['x'], roi['y'], 
+                        roi['x'] + roi['width'], 
+                        roi['y'] + roi['height'])
+            distance = roi.get('distance', 1000)  # Default to 1000m if not specified
             
-            # Calculate edge density
-            edge_density = calculate_edges(image, roi_coords)
+            # Calculate edge density for this ROI
+            edge_density = calculate_edges(frame, roi_coords)
             
-            # Calculate visibility metric
+            # Calculate visibility for this ROI
             visibility = calculate_visibility(edge_density, distance)
+            
+            # Update max visibility if this ROI has better visibility
             max_visibility = max(max_visibility, visibility)
             
-            # Get previous data for this ROI
-            prev_data = visibility_data[camera_id]['roi_data'].get(roi_id, {})
-            prev_density = prev_data.get('edge_density', edge_density)
-            
-            # Calculate change percentage
-            change_percentage = ((edge_density - prev_density) / prev_density * 100) if prev_density > 0 else 0
-            
-            # Store results
-            roi_data[roi_id] = {
-                'edge_density': edge_density,
+            # Store results for this ROI
+            roi_results.append({
+                'id': roi.get('id', ''),
+                'label': roi.get('label', ''),
+                'edge_density': round(edge_density, 2),
                 'visibility': visibility,
-                'change_percentage': change_percentage,
-                'distance': distance,
-                'label': roi_info['label'],
-                'history': prev_data.get('history', {
-                    'timestamps': [],
-                    'edge_densities': [],
-                    'visibilities': []
-                })
-            }
-            
-            # Update history
-            roi_data[roi_id]['history']['timestamps'].append(timestamp)
-            roi_data[roi_id]['history']['edge_densities'].append(edge_density)
-            roi_data[roi_id]['history']['visibilities'].append(visibility)
-            
-            # Keep only last 24 hours of data
-            cutoff_time = datetime.now() - timedelta(hours=24)
-            while (roi_data[roi_id]['history']['timestamps'] and 
-                   datetime.fromisoformat(roi_data[roi_id]['history']['timestamps'][0]) < cutoff_time):
-                roi_data[roi_id]['history']['timestamps'].pop(0)
-                roi_data[roi_id]['history']['edge_densities'].pop(0)
-                roi_data[roi_id]['history']['visibilities'].pop(0)
+                'distance': distance
+            })
         
-        # Update visibility data
-        visibility_data[camera_id] = {
-            'roi_data': roi_data,
+        # Prepare response data
+        response_data = {
             'max_visibility': max_visibility,
-            'timestamp': timestamp
+            'roi_data': roi_results,
+            'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         }
         
-        # Save to CSV
-        save_visibility_to_csv(camera_id, visibility_data[camera_id])
-        
-        return jsonify({
-            'status': 'success',
-            'visibility_data': visibility_data[camera_id]
-        })
+        return jsonify(response_data)
         
     except Exception as e:
         print(f"Error in refresh_camera: {str(e)}")
-        return jsonify({'status': 'error', 'message': str(e)})
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/camera/<camera_id>/download/csv')
 def download_visibility_csv(camera_id):
