@@ -413,14 +413,19 @@
     <div class="container-fluid py-4">
         <div class="dashboard-header">
             <div class="d-flex justify-content-between align-items-center">
-                <h1>Weather Station Dashboard</h1>
-                <div class="refresh-controls">
-                    <div class="refresh-timer">
-                        <i class="fas fa-clock"></i> Next update in <span id="countdown">300</span>s
+                <h1><img src="/static/images/aiclogo.jpg" alt="Weather Station Logo" style="height: 80px; margin-right: 10px;">Weather Station Dashboard</h1>
+                <div class="d-flex align-items-center gap-3">
+                    <a href="/visibility" class="btn btn-outline-light">
+                        <i class="fas fa-camera"></i> Visibility Dashboard
+                    </a>
+                    <div class="refresh-controls">
+                        <div class="refresh-timer">
+                            <i class="fas fa-clock"></i> Next update in <span id="countdown">300</span>s
+                        </div>
+                        <button class="btn btn-refresh" onclick="fetchData()">
+                            <i class="fas fa-sync-alt"></i> Refresh Now
+                        </button>
                     </div>
-                    <button class="btn btn-refresh" onclick="fetchData()">
-                        <i class="fas fa-sync-alt"></i> Refresh Now
-                    </button>
                 </div>
             </div>
         </div>
