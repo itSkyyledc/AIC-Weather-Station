@@ -18,7 +18,7 @@
           "width": 27,
           "height": 16
         },
-        "distance": 2000.0,
+        "distance": 860.0,
         "label": "B"
       },
       "roi_2": {
@@ -28,7 +28,7 @@
           "width": 50,
           "height": 26
         },
-        "distance": 350.0,
+        "distance": 200.0,
         "label": "C"
       }
     }

@@ -284,6 +284,43 @@
         .collapse {
             transition: all 0.3s ease;
         }
+
+        .roi-overlay {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            pointer-events: none;
+        }
+
+        .metrics-overlay {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 10px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+
+        .nav-tabs {
+            margin-bottom: 20px;
+        }
+
+        .tab-content {
+            padding: 20px 0;
+        }
+
+        .weather-station-card {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: var(--card-shadow);
+        }
     </style>
 </head>
 <body>
@@ -309,7 +346,47 @@
         </div>
     </div>
 
-    <div class="camera-grid" id="camera-grid"></div>
+    <!-- Add tabs for different sections -->
+    <ul class="nav nav-tabs" id="dashboardTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="visibility-tab" data-bs-toggle="tab" data-bs-target="#visibility" type="button" role="tab">
+                <i class="fas fa-camera"></i> Visibility Monitoring
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="weather1-tab" data-bs-toggle="tab" data-bs-target="#weather1" type="button" role="tab">
+                <i class="fas fa-cloud-sun"></i> Weather Station 1
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="weather2-tab" data-bs-toggle="tab" data-bs-target="#weather2" type="button" role="tab">
+                <i class="fas fa-cloud-sun"></i> Weather Station 2
+            </button>
+        </li>
+    </ul>
+
+    <div class="tab-content" id="dashboardTabsContent">
+        <!-- Visibility Monitoring Tab -->
+        <div class="tab-pane fade show active" id="visibility" role="tabpanel">
+            <div class="camera-grid" id="camera-grid"></div>
+        </div>
+
+        <!-- Weather Station 1 Tab -->
+        <div class="tab-pane fade" id="weather1" role="tabpanel">
+            <div class="weather-station-card">
+                <h3>Weather Station 1</h3>
+                <div id="weather1-charts"></div>
+            </div>
+        </div>
+
+        <!-- Weather Station 2 Tab -->
+        <div class="tab-pane fade" id="weather2" role="tabpanel">
+            <div class="weather-station-card">
+                <h3>Weather Station 2</h3>
+                <div id="weather2-charts"></div>
+            </div>
+        </div>
+    </div>
 
     <!-- ROI Distance Input Modal -->
     <div class="modal fade" id="roiDistanceModal" tabindex="-1">
@@ -672,111 +749,102 @@
                 });
         }
 
-        function updateVisibilityChart(cameraId, data) {
-            const visibilityChartDiv = document.getElementById(`${cameraId}-visibility-chart`);
-            const edgeDensityChartDiv = document.getElementById(`${cameraId}-edge-density-chart`);
-            if (!visibilityChartDiv || !edgeDensityChartDiv) return;
-
-            // Use server-provided historical data
-            const timestamps = data.history.timestamps.map(ts => new Date(ts));
+        function updateROIOverlay(cameraId, data) {
+            const container = document.querySelector(`#${cameraId}-card .camera-feed-container`);
+            const canvas = fabricCanvases[cameraId];
             
-            // Create visibility traces
-            const visibilityTraces = [{
-                x: timestamps,
-                y: data.history.max_visibility,
-                type: 'scatter',
-                mode: 'lines+markers',
-                name: 'Max Visibility',
-                line: { width: 2, color: '#e74c3c' }
-            }, {
-                x: timestamps,
-                y: data.history.avg_visibility,
-                type: 'scatter',
-                mode: 'lines+markers',
-                name: 'Avg Visibility',
-                line: { width: 2, color: '#f1c40f' }
-            }];
-
-            // Add individual ROI visibility traces
+            // Remove existing overlays
+            const existingOverlays = container.querySelectorAll('.roi-overlay');
+            existingOverlays.forEach(overlay => overlay.remove());
+            
+            // Add new overlays for each ROI
             data.roi_data.forEach(roi => {
+                const overlay = document.createElement('div');
+                overlay.className = 'roi-overlay';
+                
+                // Calculate position based on ROI coordinates
+                const scale = Math.min(
+                    canvas.width / canvas.backgroundImage.width,
+                    canvas.height / canvas.backgroundImage.height
+                );
+                
+                const x = roi.coords.x * scale + canvas.backgroundImage.left;
+                const y = roi.coords.y * scale + canvas.backgroundImage.top;
+                
+                overlay.style.left = `${x}px`;
+                overlay.style.top = `${y}px`;
+                
+                overlay.innerHTML = `
+                    <div>${roi.label}</div>
+                    <div>Edge Density: ${roi.edge_density.toFixed(1)}%</div>
+                    <div>Visibility: ${roi.visibility.toFixed(1)}m</div>
+                `;
+                
+                container.appendChild(overlay);
+            });
+        }
+
+        function updateVisibilityChart(cameraId, data) {
+            const timestamps = data.history.timestamps || [];
+            const maxVisibility = data.history.max_visibility || [];
+            const avgVisibility = data.history.avg_visibility || [];
+            const roiData = data.history.roi_data || [];
+
+            // Create visibility traces
+            const traces = [
+                {
+                    name: 'Max Visibility',
+                    x: timestamps,
+                    y: maxVisibility,
+                    type: 'scatter',
+                    mode: 'lines',
+                    line: { color: '#1f77b4' }
+                },
+                {
+                    name: 'Average Visibility',
+                    x: timestamps,
+                    y: avgVisibility,
+                    type: 'scatter',
+                    mode: 'lines',
+                    line: { color: '#ff7f0e' }
+                }
+            ];
+
+            // Add ROI traces
+            roiData.forEach(roi => {
                 if (roi.history && roi.history.visibility) {
-                    visibilityTraces.push({
+                    traces.push({
+                        name: `ROI ${roi.label}`,
                         x: timestamps,
                         y: roi.history.visibility,
                         type: 'scatter',
-                        mode: 'lines+markers',
-                        name: `${roi.label} Visibility`,
-                        line: { width: 1, dash: 'dot' }
+                        mode: 'lines',
+                        line: { color: '#2ca02c' }
                     });
                 }
             });
 
-            // Create edge density traces
-            const edgeDensityTraces = [];
-            
-            // Add reference line if available
-            if (data.reference && data.reference.best) {
-                edgeDensityTraces.push({
-                    x: timestamps,
-                    y: Array(timestamps.length).fill(data.reference.best.avg_edge_density),
-                    type: 'scatter',
-                    mode: 'lines',
-                    name: 'Best Reference Edge Density',
-                    line: { width: 2, color: '#2ecc71', dash: 'dash' }
-                });
-            }
-
-            // Add ROI edge density traces
-            data.roi_data.forEach(roi => {
-                if (roi.history && roi.history.edge_density) {
-                    edgeDensityTraces.push({
-                        x: timestamps,
-                        y: roi.history.edge_density,
-                        type: 'scatter',
-                        mode: 'lines+markers',
-                        name: `${roi.label} Edge Density`,
-                        line: { width: 1, dash: 'dot' }
-                    });
-                }
+            // Update visibility chart
+            Plotly.newPlot(`${cameraId}-visibility-chart`, traces, {
+                title: 'Visibility Over Time',
+                xaxis: { title: 'Time' },
+                yaxis: { title: 'Visibility (m)' }
             });
 
-            // Create layouts
-            const visibilityLayout = {
-                title: 'Visibility Measurements',
-                xaxis: { 
-                    title: 'Time',
-                    type: 'date'
-                },
-                yaxis: {
-                    title: 'Visibility (m)',
-                    range: [0, Math.max(
-                        ...data.history.max_visibility,
-                        ...data.roi_data.map(roi => roi.distance)
-                    ) * 1.1]
-                },
-                showlegend: true,
-                legend: { orientation: 'h', y: -0.2 },
-                margin: { t: 30, b: 80 }
-            };
+            // Create edge density chart
+            const edgeTraces = roiData.map(roi => ({
+                name: `ROI ${roi.label}`,
+                x: timestamps,
+                y: roi.history.edge_density,
+                type: 'scatter',
+                mode: 'lines'
+            }));
 
-            const edgeDensityLayout = {
-                title: 'Edge Density Measurements',
-                xaxis: { 
-                    title: 'Time',
-                    type: 'date'
-                },
-                yaxis: {
-                    title: 'Edge Density (%)',
-                    range: [0, 100]
-                },
-                showlegend: true,
-                legend: { orientation: 'h', y: -0.2 },
-                margin: { t: 30, b: 80 }
-            };
-
-            // Update charts
-            Plotly.react(visibilityChartDiv, visibilityTraces, visibilityLayout, {responsive: true, displayModeBar: false});
-            Plotly.react(edgeDensityChartDiv, edgeDensityTraces, edgeDensityLayout, {responsive: true, displayModeBar: false});
+            Plotly.newPlot(`${cameraId}-edge-density-chart`, edgeTraces, {
+                title: 'Edge Density Over Time',
+                xaxis: { title: 'Time' },
+                yaxis: { title: 'Edge Density (%)' }
+            });
         }
 
         function saveROI(cameraId, roi) {
@@ -872,56 +940,82 @@
         }
 
         function refreshCamera(cameraId) {
-            console.log('Refreshing camera:', cameraId);
-            const loadingOverlay = document.getElementById(`${cameraId}-loading`);
-            loadingOverlay.style.display = 'flex';
+            if (!cameraId || isRefreshing) return;
             
+            isRefreshing = true;
+            const loadingOverlay = document.getElementById(`${cameraId}-loading`);
+            if (loadingOverlay) {
+                loadingOverlay.style.display = 'flex';
+            }
+
+            // Store the current camera image
+            const canvas = fabricCanvases[cameraId];
+            const currentImage = canvas.backgroundImage;
+
             // First update the camera image
             updateCameraImage(cameraId)
                 .then(() => {
-                    // Get the canvas and its dimensions
-                    const canvas = fabricCanvases[cameraId];
-                    const width = canvas.width;
-                    const height = canvas.height;
-                    
-                    // Get ROIs from server instead of local storage
-                    return fetch(`/api/camera/${cameraId}/rois`)
-                        .then(response => response.json())
-                        .then(roisData => {
-                            if (roisData.status === 'success' && roisData.rois) {
-                                // Send frame data with ROIs to server for processing
-                                return fetch('/refresh_camera', {
-                                    method: 'POST',
-                                    headers: {
-                                        'Content-Type': 'application/json',
-                                    },
-                                    body: JSON.stringify({
-                                        camera_id: cameraId,
-                                        frame: Array.from(canvas.getContext('2d').getImageData(0, 0, width, height).data),
-                                        width: width,
-                                        height: height,
-                                        timestamp: new Date().toISOString()
-                                    })
-                                });
-                            }
-                        });
+                    return fetch('/refresh_camera', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            camera_id: cameraId,
+                            timestamp: new Date().toISOString()
+                        })
+                    });
                 })
-                .then(response => response.json())
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Failed to refresh camera data');
+                    }
+                    return response.json();
+                })
                 .then(data => {
                     if (data.error) {
-                        console.error(`Error updating visibility for ${cameraId}:`, data.error);
-                        return;
+                        throw new Error(data.error);
                     }
-                    
-                    // Update the display with server-calculated data
+
+                    // Update historical data
+                    if (historicalData[cameraId]) {
+                        historicalData[cameraId].timestamps.push(data.timestamp);
+                        historicalData[cameraId].max_visibility.push(data.max_visibility);
+                        historicalData[cameraId].avg_visibility.push(data.avg_visibility);
+                        
+                        // Update ROI data
+                        data.roi_data.forEach((roi, index) => {
+                            if (historicalData[cameraId].roi_data[index]) {
+                                historicalData[cameraId].roi_data[index].history.visibility.push(roi.visibility);
+                                historicalData[cameraId].roi_data[index].history.edge_density.push(roi.edge_density);
+                            }
+                        });
+                    }
+
+                    // Update ROI overlay on camera feed
+                    updateROIOverlay(cameraId, data);
+
+                    // Update charts
+                    updateVisibilityChart(cameraId, {
+                        history: historicalData[cameraId]
+                    });
+
+                    // Update ROI list
                     updateROIList(cameraId, data);
-                    updateVisibilityChart(cameraId, data);
+
+                    lastUpdateTime = new Date();
                 })
                 .catch(error => {
-                    console.error(`Error refreshing camera ${cameraId}:`, error);
+                    console.error('Error refreshing camera:', error);
+                    if (currentImage) {
+                        canvas.setBackgroundImage(currentImage, canvas.renderAll.bind(canvas));
+                    }
                 })
                 .finally(() => {
-                    loadingOverlay.style.display = 'none';
+                    isRefreshing = false;
+                    if (loadingOverlay) {
+                        loadingOverlay.style.display = 'none';
+                    }
                 });
         }
 
@@ -1073,6 +1167,161 @@
             // Initialize periodic updates
             setInterval(updateCountdown, 1000);
             setInterval(updateVisibilityData, 300000); // 5 minutes
+        });
+
+        // Add these functions for weather station data handling
+        function updateWeatherStationCharts(stationId, data) {
+            const timestamps = data.station_data.map(d => new Date(d.timestamp));
+            
+            // Temperature chart
+            const tempTrace = {
+                x: timestamps,
+                y: data.station_data.map(d => d.temperature),
+                name: 'Station Temperature',
+                type: 'scatter',
+                mode: 'lines',
+                line: { color: '#e74c3c' }
+            };
+            
+            const openWeatherTempTrace = {
+                x: timestamps,
+                y: data.openweather_data.map(d => d.temperature),
+                name: 'OpenWeather Temperature',
+                type: 'scatter',
+                mode: 'lines',
+                line: { color: '#c0392b' }
+            };
+            
+            Plotly.newPlot(`${stationId}-temperature-chart`, [tempTrace, openWeatherTempTrace], {
+                title: 'Temperature Over Time',
+                xaxis: { title: 'Time' },
+                yaxis: { title: 'Temperature (°C)' }
+            });
+            
+            // Humidity chart
+            const humidityTrace = {
+                x: timestamps,
+                y: data.station_data.map(d => d.humidity),
+                name: 'Station Humidity',
+                type: 'scatter',
+                mode: 'lines',
+                line: { color: '#3498db' }
+            };
+            
+            const openWeatherHumidityTrace = {
+                x: timestamps,
+                y: data.openweather_data.map(d => d.humidity),
+                name: 'OpenWeather Humidity',
+                type: 'scatter',
+                mode: 'lines',
+                line: { color: '#2980b9' }
+            };
+            
+            Plotly.newPlot(`${stationId}-humidity-chart`, [humidityTrace, openWeatherHumidityTrace], {
+                title: 'Humidity Over Time',
+                xaxis: { title: 'Time' },
+                yaxis: { title: 'Humidity (%)' }
+            });
+            
+            // Wind speed chart
+            const windTrace = {
+                x: timestamps,
+                y: data.station_data.map(d => d.wind_speed),
+                name: 'Station Wind Speed',
+                type: 'scatter',
+                mode: 'lines',
+                line: { color: '#2ecc71' }
+            };
+            
+            const openWeatherWindTrace = {
+                x: timestamps,
+                y: data.openweather_data.map(d => d.wind_speed),
+                name: 'OpenWeather Wind Speed',
+                type: 'scatter',
+                mode: 'lines',
+                line: { color: '#27ae60' }
+            };
+            
+            Plotly.newPlot(`${stationId}-wind-chart`, [windTrace, openWeatherWindTrace], {
+                title: 'Wind Speed Over Time',
+                xaxis: { title: 'Time' },
+                yaxis: { title: 'Wind Speed (m/s)' }
+            });
+        }
+
+        function refreshWeatherStation(stationId) {
+            fetch(`/api/weather/${stationId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        throw new Error(data.error);
+                    }
+                    
+                    // Update current weather display
+                    const container = document.getElementById(`${stationId}-charts`);
+                    container.innerHTML = `
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="weather-card">
+                                    <h4>Current Weather</h4>
+                                    <div class="weather-info">
+                                        <p>Temperature: ${data.station_data.temperature.toFixed(1)}°C</p>
+                                        <p>Humidity: ${data.station_data.humidity}%</p>
+                                        <p>Wind Speed: ${data.station_data.wind_speed} m/s</p>
+                                        <p>Pressure: ${data.station_data.pressure} hPa</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-8">
+                                <div class="chart-container">
+                                    <div id="${stationId}-temperature-chart" style="height: 300px;"></div>
+                                    <div id="${stationId}-humidity-chart" style="height: 300px;"></div>
+                                    <div id="${stationId}-wind-chart" style="height: 300px;"></div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    
+                    // Fetch historical data and update charts
+                    return fetch(`/api/weather/${stationId}/history`);
+                })
+                .then(response => response.json())
+                .then(data => {
+                    updateWeatherStationCharts(stationId, data);
+                })
+                .catch(error => {
+                    console.error(`Error refreshing weather station ${stationId}:`, error);
+                });
+        }
+
+        // Add event listeners for tab changes
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize weather stations
+            refreshWeatherStation('station1');
+            refreshWeatherStation('station2');
+            
+            // Add tab change listeners
+            const tabEls = document.querySelectorAll('button[data-bs-toggle="tab"]');
+            tabEls.forEach(tabEl => {
+                tabEl.addEventListener('shown.bs.tab', function(event) {
+                    const targetId = event.target.getAttribute('data-bs-target').substring(1);
+                    if (targetId === 'weather1') {
+                        refreshWeatherStation('station1');
+                    } else if (targetId === 'weather2') {
+                        refreshWeatherStation('station2');
+                    }
+                });
+            });
+            
+            // Set up periodic refresh for weather stations
+            setInterval(() => {
+                const activeTab = document.querySelector('.tab-pane.active');
+                if (activeTab.id === 'weather1') {
+                    refreshWeatherStation('station1');
+                } else if (activeTab.id === 'weather2') {
+                    refreshWeatherStation('station2');
+                }
+            }, 300000); // Refresh every 5 minutes
         });
     </script>
 </body>

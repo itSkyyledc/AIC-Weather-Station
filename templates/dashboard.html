@@ -1,0 +1,1505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Unified Weather & Visibility Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/fabric@5.3.0/dist/fabric.min.js"></script>
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --secondary-color: #3498db;
+            --accent-color: #e74c3c;
+            --background-color: #f8f9fa;
+            --card-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            --transition-speed: 0.3s;
+        }
+        
+        body {
+            background-color: var(--background-color);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .dashboard-header {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            border-radius: 12px;
+            box-shadow: var(--card-shadow);
+        }
+
+        .nav-tabs {
+            border-bottom: 2px solid var(--primary-color);
+            margin-bottom: 2rem;
+        }
+
+        .nav-tabs .nav-link {
+            color: var(--primary-color);
+            border: none;
+            padding: 1rem 2rem;
+            font-weight: 600;
+            transition: all var(--transition-speed);
+        }
+
+        .nav-tabs .nav-link:hover {
+            color: var(--secondary-color);
+            border: none;
+        }
+
+        .nav-tabs .nav-link.active {
+            color: var(--secondary-color);
+            border: none;
+            border-bottom: 3px solid var(--secondary-color);
+        }
+
+        .tab-content {
+            padding: 1rem;
+        }
+
+        /* Weather Station Styles */
+        .weather-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .weather-card {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: var(--card-shadow);
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .weather-card .card-header {
+            padding: 1rem;
+            margin: -1.5rem -1.5rem 1.5rem -1.5rem;
+            border-radius: 12px 12px 0 0;
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+        }
+
+        .weather-card .card-header h3 {
+            margin: 0;
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+
+        .current-temp {
+            font-size: 4rem;
+            font-weight: 300;
+            color: var(--accent-color);
+            line-height: 1;
+            text-align: center;
+            margin: 1rem 0;
+        }
+
+        .feels-like {
+            font-size: 1.5rem;
+            font-weight: 300;
+            color: var(--primary-color);
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .weather-metrics {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+            margin-top: auto;
+        }
+
+        .metric-card {
+            background: var(--background-color);
+            padding: 1rem;
+            border-radius: 8px;
+            text-align: center;
+            transition: transform 0.2s;
+        }
+
+        .metric-card:hover {
+            transform: translateY(-2px);
+        }
+
+        .metric-label {
+            font-size: 0.9rem;
+            color: var(--primary-color);
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+        }
+
+        .metric-value {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--secondary-color);
+        }
+
+        /* Visibility Monitoring Styles */
+        .camera-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(600px, 1fr));
+            gap: 2rem;
+            padding: 1rem;
+        }
+        .camera-card {
+            background: white;
+            border-radius: 8px;
+            box-shadow: var(--card-shadow);
+            overflow: hidden;
+        }
+        .camera-header {
+            padding: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #eee;
+        }
+        .camera-feed-container {
+            position: relative;
+            width: 100%;
+            height: 400px;
+            background: #000;
+        }
+        .camera-feed-wrapper {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .camera-canvas {
+            max-width: 100%;
+            max-height: 100%;
+        }
+        .loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            font-size: 1.2rem;
+        }
+        .camera-info {
+            padding: 1.5rem;
+            background: white;
+        }
+        .max-visibility {
+            font-size: 1.5rem;
+            font-weight: bold;
+            text-align: center;
+            padding: 1.5rem;
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            border-radius: 8px;
+            margin: 1rem 0;
+            box-shadow: var(--card-shadow);
+        }
+        .roi-list {
+            margin-top: 1.5rem;
+            padding: 1rem;
+            background: var(--background-color);
+            border-radius: 8px;
+            box-shadow: var(--card-shadow);
+        }
+        .roi-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .roi-info {
+            flex-grow: 1;
+            margin-right: 1rem;
+        }
+        .roi-label {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--primary-color);
+            margin-bottom: 0.5rem;
+        }
+        .roi-distance {
+            font-weight: bold;
+            color: var(--secondary-color);
+            font-size: 1rem;
+        }
+        .metrics {
+            flex-grow: 2;
+            background: var(--background-color);
+            padding: 0.75rem;
+            border-radius: 6px;
+            font-size: 0.95rem;
+        }
+        .metrics > div {
+            margin-bottom: 0.5rem;
+            color: #2c3e50;
+        }
+        .metrics > div:last-child {
+            margin-bottom: 0;
+        }
+        .edge-density {
+            background-color: rgba(52, 152, 219, 0.1);
+            padding: 1rem;
+            border-radius: 6px;
+            margin-bottom: 0.75rem;
+        }
+        .visibility-metrics {
+            background-color: rgba(46, 204, 113, 0.1);
+            padding: 1rem;
+            border-radius: 6px;
+        }
+        .reference-visibility {
+            margin-top: 1rem;
+            padding: 1rem;
+            background-color: #f8f9fa;
+            border-radius: 6px;
+            border-left: 4px solid #2ecc71;
+            font-size: 0.95rem;
+        }
+        .visibility-score {
+            display: inline-block;
+            font-weight: bold;
+            padding: 0.25rem 0.75rem;
+            border-radius: 4px;
+            margin-top: 0.5rem;
+            font-size: 0.9rem;
+        }
+        .visibility-score.excellent {
+            background-color: #2ecc71;
+            color: white;
+        }
+        .visibility-score.good {
+            background-color: #3498db;
+            color: white;
+        }
+        .visibility-score.fair {
+            background-color: #f1c40f;
+            color: black;
+        }
+        .visibility-score.poor {
+            background-color: #e74c3c;
+            color: white;
+        }
+        .visibility-chart, .edge-density-chart {
+            width: 100%;
+            height: 300px;
+            margin-top: 1rem;
+        }
+        .btn-roi {
+            background-color: var(--secondary-color);
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            transition: background-color 0.2s;
+        }
+        .btn-roi:hover {
+            background-color: #2980b9;
+        }
+        .roi-active {
+            background-color: var(--accent-color);
+        }
+        .charts-container {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+            margin-top: 1rem;
+        }
+        .chart-wrapper {
+            background: white;
+            border-radius: 8px;
+            padding: 1rem;
+            box-shadow: var(--card-shadow);
+        }
+        .graphs-section {
+            margin-top: 1.5rem;
+            border-top: 1px solid #eee;
+            padding-top: 1.5rem;
+        }
+        .graphs-section .btn {
+            background: var(--secondary-color);
+            border: none;
+            transition: all 0.3s ease;
+        }
+        .graphs-section .btn:hover {
+            background: var(--primary-color);
+            transform: translateY(-1px);
+        }
+        .graphs-section .btn i {
+            margin-right: 0.5rem;
+        }
+        .collapse {
+            transition: all 0.3s ease;
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard-header">
+        <div class="container">
+            <h1>Weather & Visibility Dashboard</h1>
+            <div class="d-flex justify-content-between align-items-center mt-3">
+                <div class="refresh-controls">
+                    <button class="btn btn-refresh" onclick="refreshAllData()">
+                        <i class="fas fa-sync-alt"></i> Refresh Data
+                    </button>
+                    <span class="refresh-timer ms-3">Next update in: <span id="countdown">5:00</span></span>
+                </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <ul class="nav nav-tabs" id="dashboardTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="overview-tab" data-bs-toggle="tab" data-bs-target="#overview" type="button" role="tab">
+                    <i class="fas fa-chart-line"></i> Overview
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="station1-tab" data-bs-toggle="tab" data-bs-target="#station1" type="button" role="tab">
+                    <i class="fas fa-cloud-sun"></i> AIC CTC Station
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="station2-tab" data-bs-toggle="tab" data-bs-target="#station2" type="button" role="tab">
+                    <i class="fas fa-cloud-sun"></i> AIC Salapungan Station
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="visibility-tab" data-bs-toggle="tab" data-bs-target="#visibility" type="button" role="tab">
+                    <i class="fas fa-eye"></i> Visibility Monitoring
+                </button>
+            </li>
+        </ul>
+
+        <div class="tab-content" id="dashboardTabContent">
+            <!-- Overview Tab -->
+            <div class="tab-pane fade show active" id="overview" role="tabpanel">
+                <div class="weather-grid">
+                    <!-- Station 1 Overview -->
+                    <div class="weather-card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h3>AIC CTC WEATHER STATION</h3>
+                            <a href="#station1" class="btn btn-sm btn-outline-primary" data-bs-toggle="tab">
+                                <i class="fas fa-chart-line"></i> View Details
+                            </a>
+                        </div>
+                        <div class="current-temp" id="station1-temp">--°C</div>
+                        <div class="feels-like" id="station1-feels-like">Feels like --°C</div>
+                        <div class="weather-metrics">
+                            <div class="metric-card">
+                                <div class="metric-label">Humidity</div>
+                                <div class="metric-value" id="station1-humidity">--%</div>
+                            </div>
+                            <div class="metric-card">
+                                <div class="metric-label">Wind Speed</div>
+                                <div class="metric-value" id="station1-wind">-- km/h</div>
+                            </div>
+                            <div class="metric-card">
+                                <div class="metric-label">Wind Direction</div>
+                                <div class="metric-value" id="station1-direction">--</div>
+                            </div>
+                            <div class="metric-card">
+                                <div class="metric-label">Pressure</div>
+                                <div class="metric-value" id="station1-pressure">-- hPa</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Station 2 Overview -->
+                    <div class="weather-card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h3>AIC SALAPUNGAN CANDABA WEATHER STATION</h3>
+                            <a href="#station2" class="btn btn-sm btn-outline-primary" data-bs-toggle="tab">
+                                <i class="fas fa-chart-line"></i> View Details
+                            </a>
+                        </div>
+                        <div class="current-temp" id="station2-temp">--°C</div>
+                        <div class="feels-like" id="station2-feels-like">Feels like --°C</div>
+                        <div class="weather-metrics">
+                            <div class="metric-card">
+                                <div class="metric-label">Humidity</div>
+                                <div class="metric-value" id="station2-humidity">--%</div>
+                            </div>
+                            <div class="metric-card">
+                                <div class="metric-label">Wind Speed</div>
+                                <div class="metric-value" id="station2-wind">-- km/h</div>
+                            </div>
+                            <div class="metric-card">
+                                <div class="metric-label">Wind Direction</div>
+                                <div class="metric-value" id="station2-direction">--</div>
+                            </div>
+                            <div class="metric-card">
+                                <div class="metric-label">Pressure</div>
+                                <div class="metric-value" id="station2-pressure">-- hPa</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Station 1 Detailed View -->
+            <div class="tab-pane fade" id="station1" role="tabpanel">
+                <div class="weather-card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h3>AIC CTC WEATHER STATION</h3>
+                        <button class="btn btn-sm btn-outline-primary" onclick="downloadWeatherCSV('station1')">
+                            <i class="fas fa-download"></i> Export CSV
+                        </button>
+                    </div>
+                    <div class="current-temp" id="station1-detailed-temp">--°C</div>
+                    <div class="feels-like" id="station1-detailed-feels-like">Feels like --°C</div>
+                    <div class="weather-metrics">
+                        <div class="metric-card">
+                            <div class="metric-label">Humidity</div>
+                            <div class="metric-value" id="station1-humidity">--%</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-label">Dew Point</div>
+                            <div class="metric-value" id="station1-dew-point">--°C</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-label">Wind Speed</div>
+                            <div class="metric-value" id="station1-wind">-- km/h</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-label">Wind Gust</div>
+                            <div class="metric-value" id="station1-gust">-- km/h</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-label">Wind Direction</div>
+                            <div class="metric-value" id="station1-direction">--</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-label">Pressure</div>
+                            <div class="metric-value" id="station1-pressure">-- hPa</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-label">Precipitation Rate</div>
+                            <div class="metric-value" id="station1-precip-rate">-- mm/h</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-label">Precipitation Total</div>
+                            <div class="metric-value" id="station1-precip-total">-- mm</div>
+                        </div>
+                    </div>
+                    <!-- Station 1 Graphs -->
+                    <div id="station1-charts"></div>
+                    <!-- Station 1 Comparison -->
+                    <div class="mt-4">
+                        <h5>Station vs OpenWeatherMap</h5>
+                        <div class="table-responsive">
+                            <table class="table table-sm" id="station1-comparison">
+                                <thead>
+                                    <tr>
+                                        <th>Metric</th>
+                                        <th>Station</th>
+                                        <th>OpenWeather</th>
+                                        <th>Diff</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr><td colspan="4">Loading...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Station 2 Detailed View -->
+            <div class="tab-pane fade" id="station2" role="tabpanel">
+                <div class="weather-card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h3>AIC SALAPUNGAN CANDABA WEATHER STATION</h3>
+                        <button class="btn btn-sm btn-outline-primary" onclick="downloadWeatherCSV('station2')">
+                            <i class="fas fa-download"></i> Export CSV
+                        </button>
+                    </div>
+                    <div class="current-temp" id="station2-detailed-temp">--°C</div>
+                    <div class="feels-like" id="station2-detailed-feels-like">Feels like --°C</div>
+                    <div class="weather-metrics">
+                        <div class="metric-card">
+                            <div class="metric-label">Humidity</div>
+                            <div class="metric-value" id="station2-humidity">--%</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-label">Dew Point</div>
+                            <div class="metric-value" id="station2-dew-point">--°C</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-label">Wind Speed</div>
+                            <div class="metric-value" id="station2-wind">-- km/h</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-label">Wind Gust</div>
+                            <div class="metric-value" id="station2-gust">-- km/h</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-label">Wind Direction</div>
+                            <div class="metric-value" id="station2-direction">--</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-label">Pressure</div>
+                            <div class="metric-value" id="station2-pressure">-- hPa</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-label">Precipitation Rate</div>
+                            <div class="metric-value" id="station2-precip-rate">-- mm/h</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-label">Precipitation Total</div>
+                            <div class="metric-value" id="station2-precip-total">-- mm</div>
+                        </div>
+                    </div>
+                    <!-- Station 2 Graphs -->
+                    <div id="station2-charts"></div>
+                    <!-- Station 2 Comparison -->
+                    <div class="mt-4">
+                        <h5>Station vs OpenWeatherMap</h5>
+                        <div class="table-responsive">
+                            <table class="table table-sm" id="station2-comparison">
+                                <thead>
+                                    <tr>
+                                        <th>Metric</th>
+                                        <th>Station</th>
+                                        <th>OpenWeather</th>
+                                        <th>Diff</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr><td colspan="4">Loading...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Visibility Monitoring Tab -->
+            <div class="tab-pane fade" id="visibility" role="tabpanel">
+                <div class="camera-grid" id="camera-grid"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="loading-overlay">
+        <div class="spinner-border text-light" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+
+    <script>
+        // Initialize variables
+        let weatherData = [];
+        let visibilityData = {};
+        let canvases = {};
+        let countdownInterval;
+
+        // Initialize the dashboard
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeCanvases();
+            refreshAllData();
+            startCountdown();
+        });
+
+        // Initialize Fabric.js canvases for each camera
+        function initializeCanvases() {
+            ['camera1', 'camera2', 'camera3'].forEach(cameraId => {
+                const canvas = new fabric.Canvas(`${cameraId}-canvas`, {
+                    width: 800,
+                    height: 600,
+                    backgroundColor: '#000',
+                    preserveObjectStacking: true
+                });
+                canvases[cameraId] = canvas;
+            });
+        }
+
+        // Refresh all data
+        function refreshAllData() {
+            showLoading();
+            Promise.all([
+                fetchWeatherData(),
+                fetchVisibilityData()
+            ]).then(() => {
+                hideLoading();
+                startCountdown();
+            }).catch(error => {
+                console.error('Error refreshing data:', error);
+                hideLoading();
+            });
+        }
+
+        // Fetch weather data
+        function fetchWeatherData() {
+            return Promise.all([
+                fetch('/api/current').then(response => response.json()),
+                fetch('/api/weather/station2').then(response => response.json())
+            ]).then(([station1Data, station2Data]) => {
+                updateWeatherDisplay(station1Data, 'station1');
+                updateWeatherDisplay(station2Data, 'station2');
+                return fetch('/api/history').then(response => response.json());
+            }).then(historyData => {
+                updateWeatherGraphs(historyData);
+            });
+        }
+
+        // Fetch visibility data
+        function fetchVisibilityData() {
+            return Promise.all([
+                fetch('/api/camera/camera1/snapshot').then(response => response.blob()),
+                fetch('/api/camera/camera2/snapshot').then(response => response.blob()),
+                fetch('/api/camera/camera3/snapshot').then(response => response.blob())
+            ]).then(blobs => {
+                return Promise.all(blobs.map(blob => createImageBitmap(blob)));
+            }).then(images => {
+                updateCameraFeeds(images);
+                return fetch('/api/camera/camera1/history/1hour').then(response => response.json());
+            }).then(historyData => {
+                updateVisibilityGraphs(historyData);
+            });
+        }
+
+        // Update weather display
+        function updateWeatherDisplay(data, stationId) {
+            if (data.station_data) {
+                const station = data.station_data;
+                // Update overview metrics
+                document.getElementById(`${stationId}-temp`).textContent = `${station.temperature.toFixed(1)}°C`;
+                document.getElementById(`${stationId}-feels-like`).textContent = `Feels like ${station.temperature.toFixed(1)}°C`;
+                document.getElementById(`${stationId}-humidity`).textContent = `${station.humidity}%`;
+                document.getElementById(`${stationId}-wind`).textContent = `${station.wind_speed.toFixed(1)} km/h`;
+                document.getElementById(`${stationId}-direction`).textContent = getWindDirection(station.wind_direction);
+                document.getElementById(`${stationId}-pressure`).textContent = `${station.pressure.toFixed(1)} hPa`;
+
+                // Update detailed metrics
+                document.getElementById(`${stationId}-detailed-temp`).textContent = `${station.temperature.toFixed(1)}°C`;
+                document.getElementById(`${stationId}-detailed-feels-like`).textContent = `Feels like ${station.temperature.toFixed(1)}°C`;
+                document.getElementById(`${stationId}-dew-point`).textContent = `${station.dew_point.toFixed(1)}°C`;
+                document.getElementById(`${stationId}-gust`).textContent = `${station.wind_gust.toFixed(1)} km/h`;
+                document.getElementById(`${stationId}-precip-rate`).textContent = `${station.precip_rate.toFixed(1)} mm/h`;
+                document.getElementById(`${stationId}-precip-total`).textContent = `${station.precip_total.toFixed(1)} mm`;
+
+                // Update station comparison
+                updateStationComparison(data, stationId);
+            }
+        }
+
+        // Get wind direction from degrees
+        function getWindDirection(degrees) {
+            const directions = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE',
+                              'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
+            const index = Math.round(degrees / 22.5) % 16;
+            return directions[index];
+        }
+
+        // Update weather graphs
+        function updateWeatherGraphs(data) {
+            // Update Station 1 graphs
+            updateStationGraphs('station1', data.station_data);
+            // Update Station 2 graphs
+            updateStationGraphs('station2', data.station_data_2 || []);
+            
+            // Update summary statistics
+            updateSummary(data);
+        }
+
+        // Update individual station graphs
+        function updateStationGraphs(stationId, data) {
+            // Inject graph divs before plotting
+            document.getElementById(`${stationId}-charts`).innerHTML = `
+                <div id="${stationId}-temp-graph" style="height: 300px; margin-bottom: 2rem;"></div>
+                <div id="${stationId}-wind-graph" style="height: 300px; margin-bottom: 2rem;"></div>
+                <div id="${stationId}-humidity-graph" style="height: 300px; margin-bottom: 2rem;"></div>
+                <div id="${stationId}-wind-dir-graph" style="height: 300px;"></div>
+            `;
+            const timestamps = data.map(d => new Date(d.timestamp));
+            
+            // Temperature and Dew Point
+            const tempTraces = [
+                {
+                    x: timestamps,
+                    y: data.map(d => d.temperature),
+                    name: 'Temperature',
+                    type: 'scatter',
+                    mode: 'lines',
+                    line: { color: '#e74c3c' }
+                },
+                {
+                    x: timestamps,
+                    y: data.map(d => d.dew_point),
+                    name: 'Dew Point',
+                    type: 'scatter',
+                    mode: 'lines',
+                    line: { color: '#27ae60' }
+                }
+            ];
+            
+            Plotly.newPlot(`${stationId}-temp-graph`, tempTraces, {
+                title: 'Temperature & Dew Point',
+                xaxis: { title: 'Time' },
+                yaxis: { title: 'Temperature (°C)' }
+            });
+
+            // Wind Speed and Gust
+            const windTraces = [
+                {
+                    x: timestamps,
+                    y: data.map(d => d.wind_speed),
+                    name: 'Wind Speed',
+                    type: 'scatter',
+                    mode: 'lines',
+                    line: { color: '#3498db' }
+                },
+                {
+                    x: timestamps,
+                    y: data.map(d => d.wind_gust),
+                    name: 'Wind Gust',
+                    type: 'scatter',
+                    mode: 'lines',
+                    line: { color: '#e67e22' }
+                }
+            ];
+            
+            Plotly.newPlot(`${stationId}-wind-graph`, windTraces, {
+                title: 'Wind Speed & Gust',
+                xaxis: { title: 'Time' },
+                yaxis: { title: 'Speed (km/h)' }
+            });
+
+            // Humidity
+            const humidityTrace = {
+                x: timestamps,
+                y: data.map(d => d.humidity),
+                name: 'Humidity',
+                type: 'scatter',
+                mode: 'lines',
+                line: { color: '#9b59b6' }
+            };
+            
+            Plotly.newPlot(`${stationId}-humidity-graph`, [humidityTrace], {
+                title: 'Humidity',
+                xaxis: { title: 'Time' },
+                yaxis: { title: 'Humidity (%)' }
+            });
+
+            // Wind Direction
+            const windDirTrace = {
+                x: timestamps,
+                y: data.map(d => d.wind_direction),
+                name: 'Wind Direction',
+                type: 'scatter',
+                mode: 'markers',
+                marker: {
+                    color: '#2ecc71',
+                    size: 8
+                }
+            };
+            
+            Plotly.newPlot(`${stationId}-wind-dir-graph`, [windDirTrace], {
+                title: 'Wind Direction',
+                xaxis: { title: 'Time' },
+                yaxis: {
+                    title: 'Direction (degrees)',
+                    range: [0, 360],
+                    ticktext: ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'],
+                    tickvals: [0, 45, 90, 135, 180, 225, 270, 315]
+                }
+            });
+        }
+
+        // Update comparison table
+        function updateComparison(data) {
+            if (!data || !data.station_data || !data.openweather_data) {
+                console.error('Missing data for comparison');
+                return;
+            }
+
+            const station = data.station_data;
+            const openweather = data.openweather_data;
+            const metrics = [
+                ['Temperature', '°C', 'temperature'],
+                ['Humidity', '%', 'humidity'],
+                ['Wind Speed', 'km/h', 'wind_speed'],
+                ['Pressure', 'hPa', 'pressure']
+            ];
+
+            const rows = metrics.map(([label, unit, key]) => {
+                const stationVal = station[key];
+                const openweatherVal = openweather[key];
+                const diff = (stationVal - openweatherVal).toFixed(1);
+                return `
+                    <tr>
+                        <td>${label} (${unit})</td>
+                        <td>${stationVal.toFixed(1)}</td>
+                        <td>${openweatherVal.toFixed(1)}</td>
+                        <td>${diff}</td>
+                    </tr>
+                `;
+            }).join('');
+
+            document.querySelector('#comparison-table tbody').innerHTML = rows;
+        }
+
+        // Update summary statistics
+        function updateSummary(data) {
+            if (!data || !data.station_data || !data.station_data.length) {
+                console.error('No data available for summary');
+                return;
+            }
+
+            // Calculate summaries for both stations
+            const station1Summary = calculateSummary(data.station_data);
+            const station2Summary = calculateSummary(data.station_data_2 || []);
+
+            // Update Station 1 summary values
+            updateStationSummary('station1', station1Summary);
+            // Update Station 2 summary values
+            updateStationSummary('station2', station2Summary);
+        }
+
+        // Update individual station summary
+        function updateStationSummary(stationId, summary) {
+            document.getElementById(`${stationId}-temp-high`).textContent = `${summary.temperature.high}°C`;
+            document.getElementById(`${stationId}-temp-low`).textContent = `${summary.temperature.low}°C`;
+            document.getElementById(`${stationId}-temp-avg`).textContent = `${summary.temperature.avg}°C`;
+            
+            document.getElementById(`${stationId}-dew-high`).textContent = `${summary.dewPoint.high}°C`;
+            document.getElementById(`${stationId}-dew-low`).textContent = `${summary.dewPoint.low}°C`;
+            document.getElementById(`${stationId}-dew-avg`).textContent = `${summary.dewPoint.avg}°C`;
+            
+            document.getElementById(`${stationId}-humidity-high`).textContent = `${summary.humidity.high}%`;
+            document.getElementById(`${stationId}-humidity-low`).textContent = `${summary.humidity.low}%`;
+            document.getElementById(`${stationId}-humidity-avg`).textContent = `${summary.humidity.avg}%`;
+            
+            document.getElementById(`${stationId}-wind-high`).textContent = `${summary.windSpeed.high} km/h`;
+            document.getElementById(`${stationId}-wind-low`).textContent = `${summary.windSpeed.low} km/h`;
+            document.getElementById(`${stationId}-wind-avg`).textContent = `${summary.windSpeed.avg} km/h`;
+            
+            document.getElementById(`${stationId}-gust-high`).textContent = `${summary.windGust.high} km/h`;
+            document.getElementById(`${stationId}-gust-avg`).textContent = `${summary.windGust.avg} km/h`;
+            
+            document.getElementById(`${stationId}-pressure-high`).textContent = `${summary.pressure.high} hPa`;
+            document.getElementById(`${stationId}-pressure-low`).textContent = `${summary.pressure.low} hPa`;
+            
+            document.getElementById(`${stationId}-precip-high`).textContent = `${summary.precipitation.high} mm`;
+            
+            document.getElementById(`${stationId}-wind-dir-avg`).textContent = summary.windDirection.avg;
+        }
+
+        // Calculate summary statistics
+        function calculateSummary(data) {
+            const summary = {
+                temperature: { high: -Infinity, low: Infinity, total: 0 },
+                dewPoint: { high: -Infinity, low: Infinity, total: 0 },
+                humidity: { high: -Infinity, low: Infinity, total: 0 },
+                windSpeed: { high: -Infinity, low: Infinity, total: 0 },
+                windGust: { high: -Infinity, total: 0 },
+                pressure: { high: -Infinity, low: Infinity },
+                precipitation: { high: -Infinity },
+                windDirection: { total: 0 }
+            };
+
+            data.forEach(d => {
+                // Temperature
+                summary.temperature.high = Math.max(summary.temperature.high, d.temperature);
+                summary.temperature.low = Math.min(summary.temperature.low, d.temperature);
+                summary.temperature.total += d.temperature;
+
+                // Dew Point
+                summary.dewPoint.high = Math.max(summary.dewPoint.high, d.dew_point);
+                summary.dewPoint.low = Math.min(summary.dewPoint.low, d.dew_point);
+                summary.dewPoint.total += d.dew_point;
+
+                // Humidity
+                summary.humidity.high = Math.max(summary.humidity.high, d.humidity);
+                summary.humidity.low = Math.min(summary.humidity.low, d.humidity);
+                summary.humidity.total += d.humidity;
+
+                // Wind Speed
+                summary.windSpeed.high = Math.max(summary.windSpeed.high, d.wind_speed);
+                summary.windSpeed.low = Math.min(summary.windSpeed.low, d.wind_speed);
+                summary.windSpeed.total += d.wind_speed;
+
+                // Wind Gust
+                summary.windGust.high = Math.max(summary.windGust.high, d.wind_gust);
+                summary.windGust.total += d.wind_gust;
+
+                // Pressure
+                summary.pressure.high = Math.max(summary.pressure.high, d.pressure);
+                summary.pressure.low = Math.min(summary.pressure.low, d.pressure);
+
+                // Precipitation
+                summary.precipitation.high = Math.max(summary.precipitation.high, d.precip_total);
+
+                // Wind Direction
+                summary.windDirection.total += d.wind_direction;
+            });
+
+            const count = data.length;
+            return {
+                temperature: {
+                    high: summary.temperature.high.toFixed(1),
+                    low: summary.temperature.low.toFixed(1),
+                    avg: (summary.temperature.total / count).toFixed(1)
+                },
+                dewPoint: {
+                    high: summary.dewPoint.high.toFixed(1),
+                    low: summary.dewPoint.low.toFixed(1),
+                    avg: (summary.dewPoint.total / count).toFixed(1)
+                },
+                humidity: {
+                    high: Math.round(summary.humidity.high),
+                    low: Math.round(summary.humidity.low),
+                    avg: Math.round(summary.humidity.total / count)
+                },
+                windSpeed: {
+                    high: summary.windSpeed.high.toFixed(1),
+                    low: summary.windSpeed.low.toFixed(1),
+                    avg: (summary.windSpeed.total / count).toFixed(1)
+                },
+                windGust: {
+                    high: summary.windGust.high.toFixed(1),
+                    avg: (summary.windGust.total / count).toFixed(1)
+                },
+                pressure: {
+                    high: summary.pressure.high.toFixed(2),
+                    low: summary.pressure.low.toFixed(2)
+                },
+                precipitation: {
+                    high: summary.precipitation.high.toFixed(2)
+                },
+                windDirection: {
+                    avg: getWindDirection(summary.windDirection.total / count)
+                }
+            };
+        }
+
+        // Update camera feeds
+        function updateCameraFeeds(images) {
+            images.forEach((image, index) => {
+                const cameraId = `camera${index + 1}`;
+                const canvas = canvases[cameraId];
+                canvas.clear();
+                
+                // Calculate scale to fit image in canvas while maintaining aspect ratio
+                const scale = Math.min(
+                    canvas.width / image.width,
+                    canvas.height / image.height
+                );
+                
+                const fabricImage = new fabric.Image(image, {
+                    scaleX: scale,
+                    scaleY: scale,
+                    left: (canvas.width - image.width * scale) / 2,
+                    top: (canvas.height - image.height * scale) / 2,
+                    selectable: false,
+                    evented: false
+                });
+                
+                canvas.add(fabricImage);
+                canvas.renderAll();
+            });
+        }
+
+        // Update visibility graphs
+        function updateVisibilityGraphs(data) {
+            // Update individual camera graphs
+            ['camera1', 'camera2', 'camera3'].forEach(cameraId => {
+                const cameraData = data[cameraId];
+                if (!cameraData) return;
+
+                const timestamps = cameraData.timestamps.map(t => new Date(t));
+                
+                // Visibility graph
+                const visibilityTrace = {
+                    x: timestamps,
+                    y: cameraData.max_visibility,
+                    name: 'Visibility',
+                    type: 'scatter',
+                    mode: 'lines',
+                    line: { color: '#2ecc71' }
+                };
+                
+                Plotly.newPlot(`${cameraId}-visibility-graph`, [visibilityTrace], {
+                    title: 'Visibility History',
+                    xaxis: { title: 'Time' },
+                    yaxis: { title: 'Visibility (m)' }
+                });
+
+                // Edge density graph
+                const edgeDensityTraces = cameraData.roi_data.map((roi, index) => ({
+                    x: timestamps,
+                    y: roi.edge_density_history || [],
+                    name: `ROI ${index + 1}`,
+                    type: 'scatter',
+                    mode: 'lines',
+                    line: { color: `hsl(${index * 120}, 70%, 50%)` }
+                }));
+                
+                Plotly.newPlot(`${cameraId}-edge-density-graph`, edgeDensityTraces, {
+                    title: 'Edge Density History',
+                    xaxis: { title: 'Time' },
+                    yaxis: { title: 'Edge Density (%)' }
+                });
+
+                // Update ROI metrics
+                updateROIMetrics(cameraId, cameraData.roi_data);
+                updateVisibilityMetrics(cameraId, cameraData);
+            });
+        }
+
+        // Update ROI metrics display
+        function updateROIMetrics(cameraId, roiData) {
+            const metricsDiv = document.getElementById(`${cameraId}-roi-metrics`);
+            const metrics = roiData.map(roi => `
+                <div class="mb-2">
+                    <strong>${roi.label}:</strong><br>
+                    Edge Density: ${roi.edge_density.toFixed(1)}%<br>
+                    Visibility: ${roi.visibility.toFixed(1)}m
+                </div>
+            `).join('');
+            metricsDiv.innerHTML = metrics;
+        }
+
+        // Update visibility metrics display
+        function updateVisibilityMetrics(cameraId, data) {
+            const metricsDiv = document.getElementById(`${cameraId}-visibility-metrics`);
+            metricsDiv.innerHTML = `
+                <div>
+                    Max Visibility: ${data.max_visibility.toFixed(1)}m<br>
+                    Avg Visibility: ${data.avg_visibility.toFixed(1)}m
+                </div>
+            `;
+        }
+
+        // Download camera CSV
+        function downloadCameraCSV(cameraId) {
+            window.location.href = `/api/camera/${cameraId}/download/csv`;
+        }
+
+        // Toggle between graph and table view
+        function toggleView() {
+            const graphViews = document.querySelectorAll('.graph-view');
+            const tableView = document.querySelector('.table-view');
+            
+            graphViews.forEach(view => view.classList.toggle('inactive'));
+            tableView.classList.toggle('active');
+        }
+
+        // Start countdown timer
+        function startCountdown() {
+            let timeLeft = 300; // 5 minutes in seconds
+            updateCountdown(timeLeft);
+            
+            if (countdownInterval) {
+                clearInterval(countdownInterval);
+            }
+            
+            countdownInterval = setInterval(() => {
+                timeLeft--;
+                updateCountdown(timeLeft);
+                
+                if (timeLeft <= 0) {
+                    refreshAllData();
+                }
+            }, 1000);
+        }
+
+        // Update countdown display
+        function updateCountdown(seconds) {
+            const minutes = Math.floor(seconds / 60);
+            const remainingSeconds = seconds % 60;
+            document.getElementById('countdown').textContent = 
+                `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+        }
+
+        // Show loading overlay
+        function showLoading() {
+            document.querySelector('.loading-overlay').style.display = 'flex';
+        }
+
+        // Hide loading overlay
+        function hideLoading() {
+            document.querySelector('.loading-overlay').style.display = 'none';
+        }
+
+        // Update station comparison
+        function updateStationComparison(data, stationId) {
+            if (!data || !data.station_data || !data.openweather_data) {
+                console.error('Missing data for comparison');
+                return;
+            }
+
+            const station = data.station_data;
+            const openweather = data.openweather_data;
+            const metrics = [
+                ['Temperature', '°C', 'temperature'],
+                ['Humidity', '%', 'humidity'],
+                ['Wind Speed', 'km/h', 'wind_speed'],
+                ['Wind Gust', 'km/h', 'wind_gust'],
+                ['Pressure', 'hPa', 'pressure'],
+                ['Precipitation Rate', 'mm/h', 'precip_rate']
+            ];
+
+            const rows = metrics.map(([label, unit, key]) => {
+                const stationVal = station[key];
+                const openweatherVal = openweather[key];
+                const diff = (stationVal - openweatherVal).toFixed(1);
+                const diffClass = Math.abs(diff) > 2 ? 'text-danger' : 'text-success';
+                return `
+                    <tr>
+                        <td>${label} (${unit})</td>
+                        <td>${stationVal.toFixed(1)}</td>
+                        <td>${openweatherVal.toFixed(1)}</td>
+                        <td class="${diffClass}">${diff}</td>
+                    </tr>
+                `;
+            }).join('');
+
+            document.querySelector(`#${stationId}-comparison tbody`).innerHTML = rows;
+        }
+
+        // Download weather CSV
+        function downloadWeatherCSV(stationId) {
+            const endpoint = stationId === 'station1' ? '/download/csv' : '/download/station2/csv';
+            window.location.href = endpoint;
+        }
+
+        // Add ROI configuration functions
+        let isConfiguringROI = false;
+        let currentConfigCamera = null;
+        let startPoint = null;
+        let currentRect = null;
+
+        function startROIConfig(cameraId) {
+            if (isConfiguringROI) {
+                alert('Please finish configuring the current ROI first');
+                return;
+            }
+            
+            isConfiguringROI = true;
+            currentConfigCamera = cameraId;
+            const canvas = canvases[cameraId];
+            
+            // Add event listeners for ROI configuration
+            canvas.on('mouse:down', onMouseDown);
+            canvas.on('mouse:move', onMouseMove);
+            canvas.on('mouse:up', onMouseUp);
+            
+            // Show configuration instructions
+            alert('Click and drag to draw an ROI. Release to set the ROI.');
+        }
+
+        function onMouseDown(options) {
+            if (!isConfiguringROI) return;
+            
+            const canvas = canvases[currentConfigCamera];
+            const pointer = canvas.getPointer(options.e);
+            startPoint = { x: pointer.x, y: pointer.y };
+            
+            currentRect = new fabric.Rect({
+                left: startPoint.x,
+                top: startPoint.y,
+                width: 0,
+                height: 0,
+                fill: 'rgba(52, 152, 219, 0.3)',
+                stroke: '#3498db',
+                strokeWidth: 2
+            });
+            
+            canvas.add(currentRect);
+        }
+
+        function onMouseMove(options) {
+            if (!isConfiguringROI || !startPoint || !currentRect) return;
+            
+            const canvas = canvases[currentConfigCamera];
+            const pointer = canvas.getPointer(options.e);
+            
+            const width = pointer.x - startPoint.x;
+            const height = pointer.y - startPoint.y;
+            
+            currentRect.set({
+                width: Math.abs(width),
+                height: Math.abs(height),
+                left: width > 0 ? startPoint.x : pointer.x,
+                top: height > 0 ? startPoint.y : pointer.y
+            });
+            
+            canvas.renderAll();
+        }
+
+        function onMouseUp(options) {
+            if (!isConfiguringROI || !startPoint || !currentRect) return;
+            
+            const canvas = canvases[currentConfigCamera];
+            const pointer = canvas.getPointer(options.e);
+            
+            // Calculate final dimensions
+            const width = Math.abs(pointer.x - startPoint.x);
+            const height = Math.abs(pointer.y - startPoint.y);
+            
+            if (width < 10 || height < 10) {
+                canvas.remove(currentRect);
+                alert('ROI too small. Please try again.');
+                resetROIConfig();
+                return;
+            }
+            
+            // Prompt for distance and label
+            const distance = prompt('Enter the distance to this ROI in meters:');
+            if (!distance || isNaN(distance) || distance <= 0) {
+                canvas.remove(currentRect);
+                alert('Invalid distance. Please try again.');
+                resetROIConfig();
+                return;
+            }
+            
+            const label = prompt('Enter a label for this ROI (optional):') || `ROI ${distance}m`;
+            
+            // Save ROI configuration
+            saveROI(currentConfigCamera, {
+                x: currentRect.left,
+                y: currentRect.top,
+                width: currentRect.width,
+                height: currentRect.height,
+                distance: parseFloat(distance),
+                label: label
+            });
+            
+            resetROIConfig();
+        }
+
+        function resetROIConfig() {
+            isConfiguringROI = false;
+            currentConfigCamera = null;
+            startPoint = null;
+            currentRect = null;
+            
+            // Remove event listeners
+            Object.values(canvases).forEach(canvas => {
+                canvas.off('mouse:down', onMouseDown);
+                canvas.off('mouse:move', onMouseMove);
+                canvas.off('mouse:up', onMouseUp);
+            });
+        }
+
+        function saveROI(cameraId, roiData) {
+            fetch(`/api/camera/${cameraId}/roi`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(roiData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    refreshCamera(cameraId);
+                } else {
+                    alert('Error saving ROI: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error saving ROI:', error);
+                alert('Error saving ROI. Please try again.');
+            });
+        }
+
+        // Update ROI list display
+        function updateROIList(cameraId, data) {
+            const roiList = document.getElementById(`${cameraId}-roi-list`);
+            const maxVisibilityElement = document.getElementById(`${cameraId}-max-visibility`);
+            
+            // Display the server-calculated visibility metrics
+            maxVisibilityElement.innerHTML = `
+                <div class="current-visibility">
+                    <div style="font-size: 1.8rem; margin-bottom: 0.5rem;">Maximum Visibility: ${data.max_visibility.toFixed(1)}m</div>
+                    <div style="font-size: 1.2rem;">Average Visibility: ${data.avg_visibility.toFixed(1)}m</div>
+                </div>
+            `;
+
+            if (data.reference && data.reference.best) {
+                const bestRef = data.reference.best;
+                maxVisibilityElement.innerHTML += `
+                    <div class="reference-visibility">
+                        <div style="font-weight: 600;">Best Reference Edge Density: ${bestRef.avg_edge_density.toFixed(2)}%</div>
+                        <div>Reference Date: ${new Date(bestRef.timestamp).toLocaleString()}</div>
+                    </div>
+                `;
+            }
+            
+            // Display ROI data from server
+            let roiHtml = '';
+            data.roi_data.forEach(roi => {
+                roiHtml += `
+                    <div class="roi-item" data-roi-id="${roi.id}">
+                        <div class="roi-info">
+                            <div class="roi-label">${roi.label}</div>
+                            <div class="roi-distance">Distance: ${roi.distance}m</div>
+                        </div>
+                        <div class="metrics">
+                            <div class="edge-density">
+                                <div style="font-weight: 600;">Edge Density Metrics:</div>
+                                <div>Current: ${roi.edge_density.toFixed(2)}%</div>
+                                ${roi.reference ? `
+                                    <div>Reference: ${roi.reference.edge_density.toFixed(2)}%</div>
+                                    <div class="visibility-score ${getScoreClass(roi.score)}">
+                                        Score: ${roi.score.toFixed(1)}%
+                                    </div>
+                                ` : ''}
+                            </div>
+                            <div class="visibility-metrics">
+                                <div style="font-weight: 600;">Visibility: ${roi.visibility.toFixed(1)}m</div>
+                                <div>Percentage of Range: ${roi.visibility_percentage.toFixed(1)}%</div>
+                            </div>
+                        </div>
+                        <button class="btn btn-danger btn-sm" onclick="deleteROI('${cameraId}', '${roi.id}')">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                `;
+            });
+            roiList.innerHTML = roiHtml;
+        }
+
+        function getScoreClass(score) {
+            if (score >= 90) return 'excellent';
+            if (score >= 70) return 'good';
+            if (score >= 50) return 'fair';
+            return 'poor';
+        }
+
+        // --- Visibility Monitoring JS from visibility.html ---
+        const cameras = [
+            { id: 'camera1', name: 'Camera 1', rtsp_url: 'rtsp://TAPO941A:visibility@192.168.0.112:554/stream1', location: 'Location 1' },
+            { id: 'camera2', name: 'Camera 2', rtsp_url: 'rtsp://TAPOC8EA:visibility@192.168.0.111:554/stream1', location: 'Location 2' },
+            { id: 'camera3', name: 'Camera 3', rtsp_url: 'rtsp://buth:4ytkfe@192.168.0.100/live/ch00_1', location: 'Location 3' }
+        ];
+        const cameraROIs = {};
+        const fabricCanvases = {};
+        let tempROI = null;
+        let currentCameraId = null;
+        function createCameraCard(camera) {
+            return `
+                <div class="camera-card" id="${camera.id}-card">
+                    <div class="camera-header">
+                        <h5 class="mb-0">${camera.name}</h5>
+                        <div class="d-flex gap-2">
+                            <button class="btn-roi" onclick="toggleROIMode('${camera.id}')" id="${camera.id}-roi-btn">
+                                <i class="fas fa-crop"></i> Add ROI
+                            </button>
+                            <button class="btn btn-outline-secondary btn-sm" onclick="refreshCamera('${camera.id}')">
+                                <i class="fas fa-sync-alt"></i>
+                            </button>
+                            <button class="btn btn-outline-success btn-sm" onclick="downloadCameraCSV('${camera.id}')">
+                                <i class="fas fa-download"></i> Export CSV
+                            </button>
+                        </div>
+                    </div>
+                    <div class="camera-feed-container">
+                        <div class="camera-feed-wrapper">
+                            <canvas id="${camera.id}-canvas" class="camera-canvas"></canvas>
+                        </div>
+                        <div class="loading-overlay" id="${camera.id}-loading">
+                            <i class="fas fa-spinner fa-spin"></i> Updating...
+                        </div>
+                    </div>
+                    <div class="camera-info">
+                        <div class="max-visibility" id="${camera.id}-max-visibility">
+                            Maximum Visibility: -- m
+                        </div>
+                        <div class="roi-list" id="${camera.id}-roi-list">
+                            <!-- ROI items will be added here -->
+                        </div>
+                        <div class="graphs-section">
+                            <button class="btn btn-primary w-100 mb-3" type="button" data-bs-toggle="collapse" 
+                                    data-bs-target="#${camera.id}-graphs" aria-expanded="false">
+                                <i class="fas fa-chart-line"></i> Show/Hide Graphs
+                            </button>
+                            <div class="collapse" id="${camera.id}-graphs">
+                                <div class="charts-container">
+                                    <div class="chart-wrapper">
+                                        <div class="visibility-chart" id="${camera.id}-visibility-chart"></div>
+                                    </div>
+                                    <div class="chart-wrapper">
+                                        <div class="edge-density-chart" id="${camera.id}-edge-density-chart"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        document.addEventListener('DOMContentLoaded', function() {
+            // Create camera grid
+            const cameraGrid = document.getElementById('camera-grid');
+            cameras.forEach(camera => {
+                cameraGrid.innerHTML += createCameraCard(camera);
+            });
+            // Initialize canvases and load data
+            cameras.forEach(async camera => {
+                try {
+                    // Initialize canvas first
+                    const canvasEl = document.getElementById(`${camera.id}-canvas`);
+                    canvasEl.width = 600;
+                    canvasEl.height = 400;
+                    const canvas = new fabric.Canvas(`${camera.id}-canvas`, {
+                        selection: false,
+                        preserveObjectStacking: true
+                    });
+                    fabricCanvases[camera.id] = canvas;
+                    // Load the camera image
+                    fabric.Image.fromURL(`/api/camera/${camera.id}/snapshot`, function(img) {
+                        if (!img) return;
+                        const scale = Math.min(
+                            canvas.width / img.width,
+                            canvas.height / img.height
+                        );
+                        img.scale(scale);
+                        img.set({
+                            left: (canvas.width - img.width * scale) / 2,
+                            top: (canvas.height - img.height * scale) / 2,
+                            selectable: false,
+                            evented: false
+                        });
+                        canvas.setBackgroundImage(img, () => canvas.renderAll());
+                    });
+                    // TODO: Load ROIs and historical data as in visibility.html if needed
+                } catch (error) {
+                    console.error(`Error initializing camera ${camera.id}:`, error);
+                }
+            });
+        });
+        function downloadCameraCSV(cameraId) {
+            window.location.href = `/api/camera/${cameraId}/download/csv`;
+        }
+        // ... (add more JS for ROI, refresh, and graph logic as needed from visibility.html) ...
+    </script>
+</body>
+</html> 
