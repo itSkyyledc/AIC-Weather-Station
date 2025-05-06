@@ -1,0 +1,36 @@
+{
+  "camera1": {
+    "rois": {
+      "roi_0": {
+        "coords": {
+          "x": 349,
+          "y": 180,
+          "width": 55,
+          "height": 27
+        },
+        "distance": 250.0,
+        "label": "A"
+      },
+      "roi_1": {
+        "coords": {
+          "x": 462,
+          "y": 296,
+          "width": 27,
+          "height": 16
+        },
+        "distance": 2000.0,
+        "label": "B"
+      },
+      "roi_2": {
+        "coords": {
+          "x": 623,
+          "y": 112,
+          "width": 50,
+          "height": 26
+        },
+        "distance": 350.0,
+        "label": "C"
+      }
+    }
+  }
+}

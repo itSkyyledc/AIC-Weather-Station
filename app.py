@@ -27,6 +27,18 @@ STATION_ID = "ICANDA12"
 CANDABA_LAT = 15.13
 CANDABA_LON = 120.90
 
+# Directory configuration
+DATA_DIR = "data"
+VISIBILITY_DATA_DIR = os.path.join(DATA_DIR, "visibility")
+STATIC_IMAGES_DIR = "static/images"
+CONFIG_DIR = os.path.join(DATA_DIR, "config")
+ROI_CONFIG_FILE = os.path.join(CONFIG_DIR, "roi_config.json")
+
+# Create directories if they don't exist
+for directory in [DATA_DIR, VISIBILITY_DATA_DIR, STATIC_IMAGES_DIR, CONFIG_DIR]:
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+
 # Camera configuration
 CAMERAS = {
     'camera1': {
@@ -50,16 +62,6 @@ CAMERAS = {
 weather_data = []
 openweather_data = []
 
-# Create directories if they don't exist
-DATA_DIR = "data"
-VISIBILITY_DATA_DIR = os.path.join(DATA_DIR, "visibility")
-STATIC_IMAGES_DIR = "static/images"
-ROI_CONFIG_FILE = os.path.join(DATA_DIR, "roi_config.json")
-
-for directory in [DATA_DIR, VISIBILITY_DATA_DIR, STATIC_IMAGES_DIR]:
-    if not os.path.exists(directory):
-        os.makedirs(directory)
-
 # Camera snapshot cache and visibility data storage
 camera_cache = {
     'camera1': {'image': None, 'timestamp': None},
@@ -74,18 +76,37 @@ visibility_data = defaultdict(lambda: {
     'max_visibility': 0
 })
 
+# Add reference visibility storage with history
+reference_visibility = defaultdict(lambda: {
+    'current': {
+        'roi_data': {},
+        'timestamp': None,
+        'max_visibility': 0
+    },
+    'history': [],  # List of historical midday references
+    'best': {       # Best visibility reference (100% baseline)
+        'roi_data': {},
+        'timestamp': None,
+        'max_visibility': 0
+    }
+})
+
 def calculate_visibility_distance(edge_counts, threshold_percentage=5):
     """Calculate the maximum visibility distance based on ROI edge counts."""
-    max_visibility = 0
-    for roi_id, data in sorted(edge_counts.items(), key=lambda x: x[1]['distance']):
-        current_edge_density = data['edge_density']
-        distance = data['distance']
-        visibility = data['visibility']
+    try:
+        max_visibility = 0.0
+        for roi_id, data in sorted(edge_counts.items(), key=lambda x: x[1]['distance']):
+            current_edge_density = float(data['edge_density'])
+            distance = float(data['distance'])
+            visibility = float(data['visibility'])
+            
+            # Update max visibility based on the highest visibility value
+            max_visibility = max(max_visibility, visibility)
         
-        # Update max visibility based on the highest visibility value
-        max_visibility = max(max_visibility, visibility)
-    
-    return max_visibility
+        return float(max_visibility)
+    except Exception as e:
+        print(f"Error in calculate_visibility_distance: {str(e)}")
+        return 0.0
 
 def calculate_edges(image, roi_coords):
     """Calculate edge density in the specified ROI."""
@@ -108,54 +129,62 @@ def calculate_edges(image, roi_coords):
         edge_pixels = np.count_nonzero(edges)
         edge_density = (edge_pixels / total_pixels) * 100
         
-        return edge_density
+        return float(edge_density)  # Ensure we return a scalar value
         
     except Exception as e:
         print(f"Error in calculate_edges: {str(e)}")
-        return 0
+        return 0.0
 
 def calculate_visibility(edge_density, distance):
-    """Calculate visibility metric based on edge density and distance."""
+    """Calculate visibility based on edge density and distance."""
     try:
-        # Base visibility on edge density and distance
-        # Higher edge density indicates better visibility
-        # Scale the visibility based on the distance
-        visibility = (edge_density / 100.0) * distance
+        # Ensure inputs are scalar values
+        edge_density = float(edge_density)
+        distance = float(distance)
         
-        # Ensure visibility doesn't exceed the actual distance
-        visibility = min(visibility, distance)
+        # Use a sigmoid-like function to model the relationship
+        # between edge density and visibility
+        visibility_factor = 1 / (1 + np.exp(-(edge_density - 50) / 10))
         
-        return round(visibility, 2)
+        # Scale the visibility factor to the distance
+        visibility = distance * visibility_factor
         
+        # Ensure visibility doesn't exceed the ROI's distance
+        return float(min(visibility, distance))
     except Exception as e:
         print(f"Error in calculate_visibility: {str(e)}")
-        return 0
+        return 0.0
 
 def get_camera_snapshot(rtsp_url):
-    """Capture a snapshot from an RTSP stream using OpenCV."""
+    """Capture a snapshot from an RTSP stream."""
     try:
-        # Create a VideoCapture object
+        # Create video capture object
         cap = cv2.VideoCapture(rtsp_url)
-        
-        # Set a timeout for the connection
+        if not cap.isOpened():
+            print(f"Failed to open RTSP stream: {rtsp_url}")
+            return None
+            
+        # Set timeout
         cap.set(cv2.CAP_PROP_OPEN_TIMEOUT_MSEC, 5000)
         
-        # Try to read a frame
+        # Read frame
         ret, frame = cap.read()
-        
-        # Release the capture
         cap.release()
         
-        if ret and frame is not None:
-            # Convert the frame to JPEG format
-            ret, buffer = cv2.imencode('.jpg', frame)
-            if ret:
-                return buffer.tobytes()
+        # Check if frame is valid
+        if not ret or frame is None or frame.size == 0 or not isinstance(frame, np.ndarray):
+            print("Failed to read frame from RTSP stream")
+            return None
+            
+        # Ensure frame has valid dimensions
+        if frame.shape[0] == 0 or frame.shape[1] == 0:
+            print("Invalid frame dimensions")
+            return None
+            
+        return frame
         
-        print(f"Failed to capture frame from {rtsp_url}")
-        return None
     except Exception as e:
-        print(f"Exception capturing snapshot: {str(e)}")
+        print(f"Error in get_camera_snapshot: {str(e)}")
         return None
 
 def save_to_csv(station_data, openweather_data):
@@ -274,13 +303,15 @@ def update_camera_cache():
         for camera_id, camera in CAMERAS.items():
             try:
                 image_data = get_camera_snapshot(camera['rtsp_url'])
-                if image_data:
+                if image_data is not None and isinstance(image_data, np.ndarray):
                     camera_cache[camera_id] = {
                         'image': image_data,
                         'timestamp': datetime.now().isoformat()
                     }
+                else:
+                    print(f"Invalid image data for camera {camera_id}")
             except Exception as e:
-                print(f"Error updating camera {camera_id}: {e}")
+                print(f"Error updating camera {camera_id}: {str(e)}")
         time.sleep(30)  # Update every 30 seconds
 
 # Start the camera update thread
@@ -341,31 +372,39 @@ def visibility():
 
 @app.route('/api/camera/<camera_id>/snapshot')
 def camera_snapshot(camera_id):
-    if camera_id not in CAMERAS:
-        return jsonify({'error': 'Camera not found'}), 404
-    
-    if camera_id not in camera_cache or not camera_cache[camera_id]['image']:
-        # If no cached image, try to get a fresh one
+    """Get a snapshot from the specified camera."""
+    try:
+        if camera_id not in CAMERAS:
+            return jsonify({'error': 'Camera not found'}), 404
+            
+        # Get camera configuration
         camera = CAMERAS[camera_id]
+        
+        # Get snapshot from RTSP stream
         image_data = get_camera_snapshot(camera['rtsp_url'])
-        if image_data:
-            camera_cache[camera_id] = {
-                'image': image_data,
-                'timestamp': datetime.now().isoformat()
-            }
-        else:
+        if image_data is None:
             # Return error image if snapshot failed
             return send_file(
                 os.path.join(STATIC_IMAGES_DIR, 'error.png'),
                 mimetype='image/png',
                 as_attachment=False
             )
-    
-    return send_file(
-        io.BytesIO(camera_cache[camera_id]['image']),
-        mimetype='image/jpeg',
-        as_attachment=False
-    )
+            
+        # Convert to JPEG
+        ret, buffer = cv2.imencode('.jpg', image_data)
+        if not ret:
+            return jsonify({'error': 'Failed to encode image'}), 500
+            
+        # Return image data
+        return send_file(
+            io.BytesIO(buffer),
+            mimetype='image/jpeg',
+            as_attachment=False
+        )
+        
+    except Exception as e:
+        print(f"Error in camera_snapshot: {str(e)}")
+        return jsonify({'error': str(e)}), 500
 
 # Load ROI configuration from file
 def load_roi_config():
@@ -377,131 +416,219 @@ def load_roi_config():
             print(f"Error loading ROI config: {e}")
     return {}
 
-def save_roi_config():
+def save_roi_config(camera_id, rois):
+    """Save ROI configuration for a camera."""
     try:
+        config = {}
+        if os.path.exists(ROI_CONFIG_FILE):
+            with open(ROI_CONFIG_FILE, 'r') as f:
+                config = json.load(f)
+        
+        config[camera_id] = {'rois': rois}
+        
         with open(ROI_CONFIG_FILE, 'w') as f:
-            # Convert defaultdict to regular dict for JSON serialization
-            config_data = {camera_id: dict(rois) for camera_id, rois in camera_rois.items()}
-            json.dump(config_data, f, indent=2)
+            json.dump(config, f, indent=2)
+            
     except Exception as e:
-        print(f"Error saving ROI config: {e}")
+        print(f"Error saving ROI config: {str(e)}")
 
 # Initialize camera_rois from saved config
 camera_rois = defaultdict(dict, load_roi_config())
 
 @app.route('/api/camera/<camera_id>/roi', methods=['POST'])
 def set_roi(camera_id):
-    roi_data = request.json
-    roi_id = f"roi_{len(camera_rois[camera_id])}"
-    
-    camera_rois[camera_id][roi_id] = {
-        'coords': {
-            'x': roi_data['x'],
-            'y': roi_data['y'],
-            'width': roi_data['width'],
-            'height': roi_data['height']
-        },
-        'distance': roi_data['distance'],
-        'label': roi_data.get('label', f'ROI {roi_data["distance"]}m')
-    }
-    
-    # Save ROI configuration to file
-    save_roi_config()
-    
-    return jsonify({'status': 'success', 'roi_id': roi_id})
+    try:
+        roi_data = request.json
+        rois = get_camera_rois(camera_id)
+        
+        # Generate a unique ROI ID
+        roi_id = f"roi_{len(rois)}"
+        
+        # Add new ROI
+        rois[roi_id] = {
+            'coords': {
+                'x': int(roi_data['x']),
+                'y': int(roi_data['y']),
+                'width': int(roi_data['width']),
+                'height': int(roi_data['height'])
+            },
+            'distance': float(roi_data['distance']),
+            'label': roi_data.get('label', f'ROI {roi_data["distance"]}m')
+        }
+        
+        # Save updated configuration
+        save_roi_config(camera_id, rois)
+        
+        return jsonify({'status': 'success', 'roi_id': roi_id})
+        
+    except Exception as e:
+        print(f"Error setting ROI: {str(e)}")
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/camera/<camera_id>/rois', methods=['GET'])
 def get_rois(camera_id):
     """Get all ROIs for a camera."""
-    return jsonify({
-        'status': 'success',
-        'rois': camera_rois.get(camera_id, {})
-    })
-
-def save_visibility_to_csv(camera_id, visibility_data):
-    """Save visibility data to a CSV file for the specific camera."""
-    today = datetime.now().strftime("%Y-%m-%d")
-    filename = os.path.join(VISIBILITY_DATA_DIR, f"visibility_data_{camera_id}_{today}.csv")
-    
-    # Prepare data for CSV
-    data_row = {
-        'timestamp': visibility_data['timestamp'],
-        'max_visibility': visibility_data['max_visibility']
-    }
-    
-    # Add ROI-specific data
-    for roi_id, roi_data in visibility_data['roi_data'].items():
-        prefix = f"{roi_id}_"
-        data_row.update({
-            f"{prefix}edge_density": roi_data['edge_density'],
-            f"{prefix}visibility": roi_data['visibility'],
-            f"{prefix}change_percentage": roi_data['change_percentage'],
-            f"{prefix}distance": roi_data['distance'],
-            f"{prefix}label": roi_data['label']
-        })
-    
-    # Convert to DataFrame
-    df = pd.DataFrame([data_row])
-    
-    # If file exists, append to it, otherwise create new file
-    if os.path.exists(filename):
-        df.to_csv(filename, mode='a', header=False, index=False)
-    else:
-        df.to_csv(filename, index=False)
-
-@app.route('/refresh_camera', methods=['POST'])
-def refresh_camera():
-    """Process new camera frame and calculate visibility metrics for all ROIs."""
     try:
-        # Get the frame data
-        frame_data = request.json.get('frame')
-        rois = request.json.get('rois', [])
-        
-        # Convert frame data to image
-        frame_array = np.array(frame_data, dtype=np.uint8)
-        frame = cv2.imdecode(frame_array, cv2.IMREAD_COLOR)
-        
-        # Process each ROI
-        roi_results = []
-        max_visibility = 0
-        
-        for roi in rois:
-            # Extract ROI coordinates and distance
-            roi_coords = (roi['x'], roi['y'], 
-                        roi['x'] + roi['width'], 
-                        roi['y'] + roi['height'])
-            distance = roi.get('distance', 1000)  # Default to 1000m if not specified
+        rois = get_camera_rois(camera_id)
+        return jsonify({
+            'status': 'success',
+            'rois': rois
+        })
+    except Exception as e:
+        print(f"Error getting ROIs: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/camera/<camera_id>/roi/<roi_id>', methods=['DELETE'])
+def delete_roi(camera_id, roi_id):
+    """Delete a specific ROI for a camera."""
+    try:
+        if camera_id not in camera_rois:
+            return jsonify({'status': 'error', 'message': 'Camera not found'}), 404
             
-            # Calculate edge density for this ROI
-            edge_density = calculate_edges(frame, roi_coords)
+        if roi_id not in camera_rois[camera_id]:
+            return jsonify({'status': 'error', 'message': 'ROI not found'}), 404
             
-            # Calculate visibility for this ROI
-            visibility = calculate_visibility(edge_density, distance)
-            
-            # Update max visibility if this ROI has better visibility
-            max_visibility = max(max_visibility, visibility)
-            
-            # Store results for this ROI
-            roi_results.append({
-                'id': roi.get('id', ''),
-                'label': roi.get('label', ''),
-                'edge_density': round(edge_density, 2),
-                'visibility': visibility,
-                'distance': distance
-            })
+        # Remove the ROI
+        del camera_rois[camera_id][roi_id]
         
-        # Prepare response data
-        response_data = {
-            'max_visibility': max_visibility,
-            'roi_data': roi_results,
-            'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        }
+        # Save the updated configuration
+        save_roi_config(camera_id, camera_rois[camera_id])
         
-        return jsonify(response_data)
+        return jsonify({'status': 'success', 'message': 'ROI deleted successfully'})
         
     except Exception as e:
-        print(f"Error in refresh_camera: {str(e)}")
+        print(f"Error deleting ROI: {str(e)}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+def update_reference_visibility(camera_id, visibility_data):
+    """Update reference visibility during midday and maintain historical references."""
+    current_time = datetime.now()
+    if 11 <= current_time.hour <= 13:
+        # Create reference data entry with focus on edge density
+        ref_entry = {
+            'roi_data': {roi['id']: {
+                'edge_density': roi['edge_density'],
+                'visibility': roi['visibility'],
+                'distance': roi['distance'],
+                'label': roi['label']
+            } for roi in visibility_data['roi_data']},
+            'timestamp': visibility_data['timestamp'],
+            'max_visibility': visibility_data['max_visibility'],
+            'avg_visibility': visibility_data['avg_visibility']
+        }
+        
+        # Add to history
+        reference_visibility[camera_id]['history'].append(ref_entry)
+        
+        # Update current reference
+        reference_visibility[camera_id]['current'] = ref_entry
+        
+        # Keep only last 30 days of history
+        max_history = 30 * 2  # 30 days * 2 measurements per day
+        if len(reference_visibility[camera_id]['history']) > max_history:
+            reference_visibility[camera_id]['history'] = reference_visibility[camera_id]['history'][-max_history:]
+        
+        # Update best reference based on average edge density
+        current_best = reference_visibility[camera_id]['best']
+        current_avg_edge_density = sum(roi['edge_density'] for roi in visibility_data['roi_data']) / len(visibility_data['roi_data'])
+        best_avg_edge_density = 0
+        
+        if current_best['timestamp']:
+            best_avg_edge_density = sum(roi['edge_density'] for roi in current_best['roi_data'].values()) / len(current_best['roi_data'])
+        
+        if not current_best['timestamp'] or current_avg_edge_density > best_avg_edge_density:
+            reference_visibility[camera_id]['best'] = ref_entry
+            print(f"New best visibility reference for camera {camera_id}:")
+            print(f"Average Edge Density: {current_avg_edge_density:.2f}% at {ref_entry['timestamp']}")
+        
+        print(f"Updated reference visibility for camera {camera_id} at {current_time}")
+
+def calculate_visibility_score(current_data, camera_id, roi_id):
+    """Calculate visibility score relative to best reference data based on edge density."""
+    best_reference = reference_visibility[camera_id]['best']
+    if not best_reference or not best_reference['roi_data']:
+        return current_data['visibility'], 100  # Return raw visibility if no reference
+    
+    # Get reference data for this ROI
+    ref_data = best_reference['roi_data'].get(roi_id, {})
+    if not ref_data:
+        return current_data['visibility'], 100
+    
+    # Calculate visibility score based on the ratio of current visibility to maximum possible visibility
+    visibility = current_data['visibility']
+    distance = ref_data.get('distance', visibility)  # Use ROI distance as maximum possible
+    
+    if distance > 0:
+        # Score is the percentage of maximum possible visibility achieved
+        score = (visibility / distance) * 100
+    else:
+        score = 100 if visibility > 0 else 0
+    
+    return visibility, min(100, max(0, score))
+
+@app.route('/api/camera/<camera_id>/references', methods=['GET'])
+def get_visibility_references(camera_id):
+    """Get visibility reference data for a camera."""
+    try:
+        if camera_id not in reference_visibility:
+            return jsonify({'error': 'No reference data available'}), 404
+        
+        ref_data = reference_visibility[camera_id]
+        return jsonify({
+            'current': ref_data['current'],
+            'best': ref_data['best'],
+            'history': sorted(ref_data['history'], 
+                            key=lambda x: x['timestamp'],
+                            reverse=True)[:10]  # Return last 10 references
+        })
+    except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+def save_visibility_to_csv(camera_id, data):
+    """Save visibility data to CSV file."""
+    try:
+        today = datetime.now().strftime("%Y-%m-%d")
+        filename = os.path.join(VISIBILITY_DATA_DIR, f"visibility_data_{camera_id}_{today}.csv")
+        
+        # Prepare data for CSV
+        row = {
+            'timestamp': data['timestamp'],
+            'max_visibility': data['max_visibility'],
+            'avg_visibility': data['avg_visibility']
+        }
+        
+        # Add ROI data
+        for roi in data['roi_data']:
+            prefix = f"roi_{roi['id']}_"
+            row.update({
+                f"{prefix}id": roi['id'],
+                f"{prefix}label": roi['label'],
+                f"{prefix}distance": roi['distance'],
+                f"{prefix}edge_density": roi['edge_density'],
+                f"{prefix}visibility": roi['visibility'],
+                f"{prefix}visibility_percentage": roi['visibility_percentage']
+            })
+        
+        # Create directory if it doesn't exist
+        os.makedirs(os.path.dirname(filename), exist_ok=True)
+        
+        # Write to CSV
+        df = pd.DataFrame([row])
+        if os.path.exists(filename):
+            df.to_csv(filename, mode='a', header=False, index=False)
+        else:
+            df.to_csv(filename, index=False)
+            
+    except Exception as e:
+        print(f"Error saving visibility data: {str(e)}")
+
+@app.route('/api/camera/<camera_id>/history/1hour', methods=['GET'])
+def get_camera_history_api(camera_id):
+    """API endpoint to get camera history."""
+    history = get_camera_history(camera_id)
+    if history is None:
+        return jsonify({'error': 'Failed to fetch camera history'}), 500
+    return jsonify(history)
 
 @app.route('/api/camera/<camera_id>/download/csv')
 def download_visibility_csv(camera_id):
@@ -517,6 +644,203 @@ def download_visibility_csv(camera_id):
             download_name=f"visibility_data_{camera_id}_{today}.csv"
         )
     return jsonify({'error': 'No data available for download'}), 404
+
+def get_camera_history(camera_id):
+    """Get the last hour of visibility data for a camera."""
+    try:
+        now = datetime.now()
+        one_hour_ago = now - timedelta(hours=1)
+        
+        # Read today's CSV file
+        today = now.strftime("%Y-%m-%d")
+        filename = os.path.join(VISIBILITY_DATA_DIR, f"visibility_data_{camera_id}_{today}.csv")
+        
+        if not os.path.exists(filename):
+            return {
+                'timestamps': [],
+                'max_visibility': [],
+                'avg_visibility': [],
+                'roi_data': {}
+            }
+        
+        # Read CSV with dynamic column detection
+        df = pd.read_csv(filename)
+        df['timestamp'] = pd.to_datetime(df['timestamp'])
+        
+        # Filter for last hour
+        df = df[df['timestamp'] >= one_hour_ago]
+        
+        # Initialize ROI data structure
+        roi_data = {}
+        
+        # Get all ROI columns
+        roi_columns = [col for col in df.columns if col.startswith('roi_')]
+        roi_ids = set()
+        
+        # Extract ROI IDs
+        for col in roi_columns:
+            if col.endswith('_id'):
+                roi_ids.update(df[col].unique())
+        
+        # Collect data for each ROI
+        for roi_id in roi_ids:
+            roi_prefix = next(col[:-3] for col in roi_columns if col.endswith('_id') and roi_id in df[col].unique())
+            roi_data[roi_id] = {
+                'visibility': df[f'{roi_prefix}visibility'].tolist(),
+                'edge_density': df[f'{roi_prefix}edge_density'].tolist(),
+                'distance': df[f'{roi_prefix}distance'].iloc[0],
+                'label': df[f'{roi_prefix}label'].iloc[0]
+            }
+        
+        return {
+            'timestamps': df['timestamp'].dt.strftime('%Y-%m-%d %H:%M:%S').tolist(),
+            'max_visibility': df['max_visibility'].tolist(),
+            'avg_visibility': df['avg_visibility'].tolist(),
+            'roi_data': roi_data
+        }
+        
+    except Exception as e:
+        print(f"Error getting camera history: {str(e)}")
+        return None
+
+def get_reference_data(camera_id):
+    """Get reference visibility data for a camera."""
+    try:
+        filename = os.path.join(VISIBILITY_DATA_DIR, f"reference_data_{camera_id}.json")
+        if not os.path.exists(filename):
+            return None
+            
+        with open(filename, 'r') as f:
+            return json.load(f)
+    except Exception as e:
+        print(f"Error getting reference data: {str(e)}")
+        return None
+
+def get_camera_rois(camera_id):
+    """Get ROI definitions for a camera."""
+    try:
+        if not os.path.exists(ROI_CONFIG_FILE):
+            return {}
+            
+        with open(ROI_CONFIG_FILE, 'r') as f:
+            config = json.load(f)
+            return config.get(camera_id, {}).get('rois', {})
+    except Exception as e:
+        print(f"Error getting camera ROIs: {str(e)}")
+        return {}
+
+def process_frame(frame, rois):
+    """Process a frame and calculate visibility metrics for all ROIs."""
+    try:
+        roi_data = []
+        max_visibility = 0.0
+        total_visibility = 0.0
+        
+        for roi_id, roi in rois.items():
+            try:
+                # Extract ROI coordinates
+                x = int(roi['coords']['x'])
+                y = int(roi['coords']['y'])
+                w = int(roi['coords']['width'])
+                h = int(roi['coords']['height'])
+                distance = float(roi['distance'])
+                
+                # Get ROI image
+                roi_img = frame[y:y+h, x:x+w]
+                if roi_img.size == 0:
+                    print(f"Empty ROI image for {roi_id}")
+                    continue
+                
+                # Convert to grayscale
+                gray = cv2.cvtColor(roi_img, cv2.COLOR_BGR2GRAY)
+                
+                # Apply Gaussian blur
+                blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+                
+                # Calculate edge density
+                edges = cv2.Canny(blurred, 50, 150)
+                edge_density = float(np.count_nonzero(edges)) / (w * h) * 100
+                
+                # Calculate visibility
+                visibility = calculate_visibility(edge_density, distance)
+                
+                # Update max and total visibility
+                max_visibility = max(max_visibility, visibility)
+                total_visibility += visibility
+                
+                # Create ROI data entry
+                roi_data.append({
+                    'id': roi_id,
+                    'label': roi['label'],
+                    'distance': distance,
+                    'edge_density': edge_density,
+                    'visibility': visibility,
+                    'visibility_percentage': (visibility / distance) * 100
+                })
+            except Exception as e:
+                print(f"Error processing ROI {roi_id}: {str(e)}")
+                continue
+        
+        # Calculate average visibility
+        avg_visibility = total_visibility / len(roi_data) if roi_data else 0.0
+        
+        return {
+            'max_visibility': max_visibility,
+            'avg_visibility': avg_visibility,
+            'roi_data': roi_data
+        }
+    except Exception as e:
+        print(f"Error in process_frame: {str(e)}")
+        return None
+
+@app.route('/refresh_camera', methods=['POST'])
+def refresh_camera():
+    try:
+        data = request.json
+        camera_id = data['camera_id']
+        
+        # Get current ROIs for this camera
+        rois = get_camera_rois(camera_id)
+        if not rois:
+            return jsonify({'error': 'No ROIs defined'})
+
+        # Convert frame data to image
+        frame_data = np.array(data['frame'], dtype=np.uint8)
+        frame = frame_data.reshape((data['height'], data['width'], 4))
+        frame = cv2.cvtColor(frame, cv2.COLOR_RGBA2BGR)
+        
+        # Process frame and calculate metrics
+        metrics = process_frame(frame, rois)
+        if metrics is None:
+            return jsonify({'error': 'Failed to process frame'})
+        
+        # Get historical data
+        history = get_camera_history(camera_id)
+        
+        # Get reference data
+        reference = get_reference_data(camera_id)
+        
+        # Save data to CSV
+        save_visibility_to_csv(camera_id, {
+            'timestamp': data['timestamp'],
+            'max_visibility': metrics['max_visibility'],
+            'avg_visibility': metrics['avg_visibility'],
+            'roi_data': metrics['roi_data']
+        })
+        
+        # Return complete data package
+        return jsonify({
+            'max_visibility': metrics['max_visibility'],
+            'avg_visibility': metrics['avg_visibility'],
+            'roi_data': metrics['roi_data'],
+            'reference': reference,
+            'history': history,
+            'timestamp': data['timestamp']
+        })
+        
+    except Exception as e:
+        print(f"Error in refresh_camera: {str(e)}")
+        return jsonify({'error': str(e)})
 
 if __name__ == '__main__':
     # Fetch initial data
