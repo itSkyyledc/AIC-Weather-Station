@@ -183,19 +183,6 @@
             max-width: 100%;
             max-height: 100%;
         }
-        .loading-overlay {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.7);
-            display: none;
-            justify-content: center;
-            align-items: center;
-            color: white;
-            font-size: 1.2rem;
-        }
         .camera-info {
             padding: 1.5rem;
             background: white;
@@ -356,7 +343,7 @@
 <body>
     <div class="dashboard-header">
         <div class="container">
-            <h1>Weather & Visibility Dashboard</h1>
+            <h1>Ateneo Innovation Center Weather & Visibility Dashboard</h1>
             <div class="d-flex justify-content-between align-items-center mt-3">
                 <div class="refresh-controls">
                     <button class="btn btn-refresh" onclick="refreshAllData()">
@@ -605,12 +592,6 @@
         </div>
     </div>
 
-    <div class="loading-overlay">
-        <div class="spinner-border text-light" role="status">
-            <span class="visually-hidden">Loading...</span>
-        </div>
-    </div>
-
     <script>
         // Initialize variables
         let weatherData = [];
@@ -618,9 +599,10 @@
         let canvases = {};
         let countdownInterval;
 
-        // Initialize the dashboard
+        // Initialize everything
         document.addEventListener('DOMContentLoaded', function() {
             initializeCanvases();
+            initializeGraphs();
             refreshAllData();
             startCountdown();
         });
@@ -638,18 +620,61 @@
             });
         }
 
+        // Initialize graphs
+        function initializeGraphs() {
+            // Create graph containers for each station
+            ['station1', 'station2'].forEach(stationId => {
+                const chartsDiv = document.getElementById(`${stationId}-charts`);
+                if (!chartsDiv) return;
+
+                chartsDiv.innerHTML = `
+                    <div class="graphs-section mt-4">
+                        <div class="row">
+                            <div class="col-md-6 mb-4">
+                                <div class="chart-wrapper">
+                                    <div id="${stationId}-temp-graph" style="height: 300px;"></div>
+                                </div>
+                            </div>
+                            <div class="col-md-6 mb-4">
+                                <div class="chart-wrapper">
+                                    <div id="${stationId}-wind-graph" style="height: 300px;"></div>
+                                </div>
+                            </div>
+                            <div class="col-md-6 mb-4">
+                                <div class="chart-wrapper">
+                                    <div id="${stationId}-humidity-graph" style="height: 300px;"></div>
+                                </div>
+                            </div>
+                            <div class="col-md-6 mb-4">
+                                <div class="chart-wrapper">
+                                    <div id="${stationId}-wind-dir-graph" style="height: 300px;"></div>
+                                </div>
+                            </div>
+                            <div class="col-md-6 mb-4">
+                                <div class="chart-wrapper">
+                                    <div id="${stationId}-pressure-graph" style="height: 300px;"></div>
+                                </div>
+                            </div>
+                            <div class="col-md-6 mb-4">
+                                <div class="chart-wrapper">
+                                    <div id="${stationId}-precip-graph" style="height: 300px;"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
         // Refresh all data
         function refreshAllData() {
-            showLoading();
             Promise.all([
                 fetchWeatherData(),
                 fetchVisibilityData()
             ]).then(() => {
-                hideLoading();
                 startCountdown();
             }).catch(error => {
                 console.error('Error refreshing data:', error);
-                hideLoading();
             });
         }
 
@@ -729,17 +754,33 @@
 
         // Update individual station graphs
         function updateStationGraphs(stationId, data) {
-            // Inject graph divs before plotting
-            document.getElementById(`${stationId}-charts`).innerHTML = `
-                <div id="${stationId}-temp-graph" style="height: 300px; margin-bottom: 2rem;"></div>
-                <div id="${stationId}-wind-graph" style="height: 300px; margin-bottom: 2rem;"></div>
-                <div id="${stationId}-humidity-graph" style="height: 300px; margin-bottom: 2rem;"></div>
-                <div id="${stationId}-wind-dir-graph" style="height: 300px;"></div>
-            `;
+            if (!data || !data.length) return;
+
             const timestamps = data.map(d => new Date(d.timestamp));
+            const layout = {
+                autosize: true,
+                margin: { l: 50, r: 30, t: 30, b: 40 },
+                showlegend: true,
+                legend: {
+                    orientation: 'h',
+                    y: -0.2
+                },
+                xaxis: {
+                    type: 'date',
+                    tickformat: '%H:%M',
+                    showgrid: true,
+                    gridcolor: '#eee'
+                },
+                yaxis: {
+                    showgrid: true,
+                    gridcolor: '#eee'
+                },
+                plot_bgcolor: 'white',
+                paper_bgcolor: 'white'
+            };
             
             // Temperature and Dew Point
-            const tempTraces = [
+            Plotly.newPlot(`${stationId}-temp-graph`, [
                 {
                     x: timestamps,
                     y: data.map(d => d.temperature),
@@ -756,16 +797,14 @@
                     mode: 'lines',
                     line: { color: '#27ae60' }
                 }
-            ];
-            
-            Plotly.newPlot(`${stationId}-temp-graph`, tempTraces, {
+            ], {
+                ...layout,
                 title: 'Temperature & Dew Point',
-                xaxis: { title: 'Time' },
                 yaxis: { title: 'Temperature (°C)' }
             });
 
             // Wind Speed and Gust
-            const windTraces = [
+            Plotly.newPlot(`${stationId}-wind-graph`, [
                 {
                     x: timestamps,
                     y: data.map(d => d.wind_speed),
@@ -782,52 +821,87 @@
                     mode: 'lines',
                     line: { color: '#e67e22' }
                 }
-            ];
-            
-            Plotly.newPlot(`${stationId}-wind-graph`, windTraces, {
+            ], {
+                ...layout,
                 title: 'Wind Speed & Gust',
-                xaxis: { title: 'Time' },
                 yaxis: { title: 'Speed (km/h)' }
             });
 
             // Humidity
-            const humidityTrace = {
-                x: timestamps,
-                y: data.map(d => d.humidity),
-                name: 'Humidity',
-                type: 'scatter',
-                mode: 'lines',
-                line: { color: '#9b59b6' }
-            };
-            
-            Plotly.newPlot(`${stationId}-humidity-graph`, [humidityTrace], {
+            Plotly.newPlot(`${stationId}-humidity-graph`, [
+                {
+                    x: timestamps,
+                    y: data.map(d => d.humidity),
+                    name: 'Humidity',
+                    type: 'scatter',
+                    mode: 'lines',
+                    line: { color: '#9b59b6' }
+                }
+            ], {
+                ...layout,
                 title: 'Humidity',
-                xaxis: { title: 'Time' },
                 yaxis: { title: 'Humidity (%)' }
             });
 
             // Wind Direction
-            const windDirTrace = {
-                x: timestamps,
-                y: data.map(d => d.wind_direction),
-                name: 'Wind Direction',
-                type: 'scatter',
-                mode: 'markers',
-                marker: {
-                    color: '#2ecc71',
-                    size: 8
+            Plotly.newPlot(`${stationId}-wind-dir-graph`, [
+                {
+                    x: timestamps,
+                    y: data.map(d => d.wind_direction),
+                    name: 'Wind Direction',
+                    type: 'scatter',
+                    mode: 'markers',
+                    marker: { color: '#2ecc71', size: 8 }
                 }
-            };
-            
-            Plotly.newPlot(`${stationId}-wind-dir-graph`, [windDirTrace], {
+            ], {
+                ...layout,
                 title: 'Wind Direction',
-                xaxis: { title: 'Time' },
                 yaxis: {
                     title: 'Direction (degrees)',
                     range: [0, 360],
                     ticktext: ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'],
                     tickvals: [0, 45, 90, 135, 180, 225, 270, 315]
                 }
+            });
+
+            // Pressure
+            Plotly.newPlot(`${stationId}-pressure-graph`, [
+                {
+                    x: timestamps,
+                    y: data.map(d => d.pressure),
+                    name: 'Pressure',
+                    type: 'scatter',
+                    mode: 'lines',
+                    line: { color: '#34495e' }
+                }
+            ], {
+                ...layout,
+                title: 'Pressure',
+                yaxis: { title: 'Pressure (hPa)' }
+            });
+
+            // Precipitation
+            Plotly.newPlot(`${stationId}-precip-graph`, [
+                {
+                    x: timestamps,
+                    y: data.map(d => d.precip_rate),
+                    name: 'Rate',
+                    type: 'scatter',
+                    mode: 'lines',
+                    line: { color: '#16a085' }
+                },
+                {
+                    x: timestamps,
+                    y: data.map(d => d.precip_total),
+                    name: 'Total',
+                    type: 'scatter',
+                    mode: 'lines',
+                    line: { color: '#2980b9' }
+                }
+            ], {
+                ...layout,
+                title: 'Precipitation',
+                yaxis: { title: 'Precipitation (mm)' }
             });
         }
 
@@ -1135,16 +1209,6 @@
             const remainingSeconds = seconds % 60;
             document.getElementById('countdown').textContent = 
                 `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
-        }
-
-        // Show loading overlay
-        function showLoading() {
-            document.querySelector('.loading-overlay').style.display = 'flex';
-        }
-
-        // Hide loading overlay
-        function hideLoading() {
-            document.querySelector('.loading-overlay').style.display = 'none';
         }
 
         // Update station comparison

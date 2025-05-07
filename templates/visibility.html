@@ -939,83 +939,66 @@
             });
         }
 
+        function hideLoadingOverlay(cameraId) {
+            const loadingOverlay = document.getElementById(`${cameraId}-loading`);
+            if (loadingOverlay) {
+                loadingOverlay.style.display = 'none';
+            }
+        }
+
         function refreshCamera(cameraId) {
-            if (!cameraId || isRefreshing) return;
-            
-            isRefreshing = true;
+            console.log('Refreshing camera:', cameraId);
             const loadingOverlay = document.getElementById(`${cameraId}-loading`);
             if (loadingOverlay) {
                 loadingOverlay.style.display = 'flex';
             }
 
-            // Store the current camera image
-            const canvas = fabricCanvases[cameraId];
-            const currentImage = canvas.backgroundImage;
-
             // First update the camera image
             updateCameraImage(cameraId)
                 .then(() => {
-                    return fetch('/refresh_camera', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            camera_id: cameraId,
-                            timestamp: new Date().toISOString()
-                        })
-                    });
-                })
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error('Failed to refresh camera data');
-                    }
-                    return response.json();
-                })
-                .then(data => {
-                    if (data.error) {
-                        throw new Error(data.error);
-                    }
+                    // Get the canvas and its dimensions
+                    const canvas = fabricCanvases[cameraId];
+                    const width = canvas.width;
+                    const height = canvas.height;
 
-                    // Update historical data
-                    if (historicalData[cameraId]) {
-                        historicalData[cameraId].timestamps.push(data.timestamp);
-                        historicalData[cameraId].max_visibility.push(data.max_visibility);
-                        historicalData[cameraId].avg_visibility.push(data.avg_visibility);
-                        
-                        // Update ROI data
-                        data.roi_data.forEach((roi, index) => {
-                            if (historicalData[cameraId].roi_data[index]) {
-                                historicalData[cameraId].roi_data[index].history.visibility.push(roi.visibility);
-                                historicalData[cameraId].roi_data[index].history.edge_density.push(roi.edge_density);
+                    // Get ROIs from server instead of local storage
+                    return fetch(`/api/camera/${cameraId}/rois`)
+                        .then(response => response.json())
+                        .then(roisData => {
+                            if (roisData.status === 'success' && roisData.rois) {
+                                // Send frame data with ROIs to server for processing
+                                return fetch('/refresh_camera', {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json',
+                                    },
+                                    body: JSON.stringify({
+                                        camera_id: cameraId,
+                                        frame: Array.from(canvas.getContext('2d').getImageData(0, 0, width, height).data),
+                                        width: width,
+                                        height: height,
+                                        timestamp: new Date().toISOString()
+                                    })
+                                });
                             }
                         });
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        console.error(`Error updating visibility for ${cameraId}:`, data.error);
+                        return;
                     }
 
-                    // Update ROI overlay on camera feed
-                    updateROIOverlay(cameraId, data);
-
-                    // Update charts
-                    updateVisibilityChart(cameraId, {
-                        history: historicalData[cameraId]
-                    });
-
-                    // Update ROI list
+                    // Update the display with server-calculated data
                     updateROIList(cameraId, data);
-
-                    lastUpdateTime = new Date();
+                    updateVisibilityChart(cameraId, data);
                 })
                 .catch(error => {
-                    console.error('Error refreshing camera:', error);
-                    if (currentImage) {
-                        canvas.setBackgroundImage(currentImage, canvas.renderAll.bind(canvas));
-                    }
+                    console.error(`Error refreshing camera ${cameraId}:`, error);
                 })
                 .finally(() => {
-                    isRefreshing = false;
-                    if (loadingOverlay) {
-                        loadingOverlay.style.display = 'none';
-                    }
+                    hideLoadingOverlay(cameraId);
                 });
         }
 
@@ -1325,4 +1308,4 @@
         });
     </script>
 </body>
-</html> 
+</html>

@@ -24,12 +24,11 @@ app = Flask(__name__)
 # Configuration
 WEATHER_STATION_API_KEY = os.getenv("WEATHER_STATION_API_KEY")
 OPENWEATHER_API_KEY = os.getenv("OPENWEATHER_API_KEY")
-STATION_ID = "IQUEZO39"
-STATION_ID_2 = "ICANDA12"  # Add second station ID
-
-CANDABA_LAT = 14.63
-CANDABA_LON = 121.078
-STATION2_LAT = 15.13  # Add second station coordinates
+STATION_ID = "IQUEZO39"  # First station ID
+STATION_ID_2 = "ICANDA12"  # Second station ID
+STATION1_LAT = 14.63  # First station coordinates
+STATION1_LON = 121.078
+STATION2_LAT = 15.13  # Second station coordinates
 STATION2_LON = 120.90
 
 # Directory configuration
@@ -79,10 +78,10 @@ CAMERAS = {
 }
 
 # Data storage
-weather_data = []
-weather_data_2 = []  # Add storage for second station
-openweather_data = []
-openweather_data_2 = []  # Add storage for second station's OpenWeather data
+weather_data_1 = []  # First station data
+weather_data_2 = []  # Second station data
+openweather_data_1 = []  # First station OpenWeather data
+openweather_data_2 = []  # Second station OpenWeather data
 
 # Camera snapshot cache and visibility data storage
 camera_cache = {
@@ -278,7 +277,8 @@ def save_to_csv(station_data, openweather_data):
     else:
         df.to_csv(filename, index=False)
 
-def fetch_station_data():
+def fetch_station_data_1():
+    """Fetch data from the first weather station."""
     url = f"https://api.weather.com/v2/pws/observations/current?stationId={STATION_ID}&format=json&units=m&apiKey={WEATHER_STATION_API_KEY}"
     try:
         response = requests.get(url)
@@ -305,19 +305,20 @@ def fetch_station_data():
                 'precip_total': metric.get('precipTotal', 0)
             }
             
-            weather_data.append(new_data)
+            weather_data_1.append(new_data)
             
             # Keep only last 24 hours of data in memory
-            while len(weather_data) > 288:  # 288 = 24 hours * 12 (5-minute intervals)
-                weather_data.pop(0)
+            while len(weather_data_1) > 288:  # 288 = 24 hours * 12 (5-minute intervals)
+                weather_data_1.pop(0)
                 
             return new_data
     except Exception as e:
-        print(f"Error fetching station data: {e}")
+        print(f"Error fetching station 1 data: {e}")
         return None
 
-def fetch_openweather_data():
-    url = f"https://api.openweathermap.org/data/2.5/weather?lat={CANDABA_LAT}&lon={CANDABA_LON}&appid={OPENWEATHER_API_KEY}&units=metric"
+def fetch_openweather_data_1():
+    """Fetch OpenWeather data for the first station location."""
+    url = f"https://api.openweathermap.org/data/2.5/weather?lat={STATION1_LAT}&lon={STATION1_LON}&appid={OPENWEATHER_API_KEY}&units=metric"
     try:
         response = requests.get(url)
         data = response.json()
@@ -337,50 +338,85 @@ def fetch_openweather_data():
             'precip_total': rain_data.get('3h', 0)  # mm/3hours
         }
         
-        openweather_data.append(new_data)
+        openweather_data_1.append(new_data)
         
-        while len(openweather_data) > 288:
-            openweather_data.pop(0)
+        while len(openweather_data_1) > 288:
+            openweather_data_1.pop(0)
             
         return new_data
     except Exception as e:
-        print(f"Error fetching OpenWeather data: {e}")
+        print(f"Error fetching OpenWeather data for station 1: {e}")
         return None
 
-def fetch_metar_data():
-    """Fetch METAR data and include it in the weather station."""
+def fetch_station_data_2():
+    """Fetch data from the second weather station."""
+    url = f"https://api.weather.com/v2/pws/observations/current?stationId={STATION_ID_2}&format=json&units=m&apiKey={WEATHER_STATION_API_KEY}"
     try:
-        # Example METAR API URL (replace with actual API endpoint)
-        url = f"https://api.metarservice.com/metar?station={STATION_ID}&format=json"
         response = requests.get(url)
         data = response.json()
-
-        # Extract relevant METAR fields
-        metar_data = {
-            'timestamp': datetime.now().isoformat(),
-            'temperature': data.get('temperature', 0),
-            'dew_point': data.get('dew_point', 0),
-            'humidity': data.get('humidity', 0),
-            'wind_speed': data.get('wind_speed', 0),
-            'wind_direction': data.get('wind_direction', 0),
-            'pressure': data.get('pressure', 0),
-            'visibility': data.get('visibility', 0),
-            'cloud_cover': data.get('cloud_cover', 0),
-            'weather_conditions': data.get('weather_conditions', '')
-        }
-
-        # Save METAR data to a CSV file
-        today = datetime.now().strftime("%Y-%m-%d")
-        filename = os.path.join(DATA_DIR, f"metar_data_{today}.csv")
-        df = pd.DataFrame([metar_data])
-        if os.path.exists(filename):
-            df.to_csv(filename, mode='a', header=False, index=False)
-        else:
-            df.to_csv(filename, index=False)
-
-        return metar_data
+        if "observations" in data and data["observations"]:
+            obs = data["observations"][0]
+            metric = obs.get('metric', {})
+            
+            # Calculate dew point if not provided
+            temp = metric.get('temp', 0)
+            humidity = obs.get('humidity', 0)
+            dew_point = temp - ((100 - humidity) / 5)  # Approximate calculation
+            
+            new_data = {
+                'timestamp': datetime.now().isoformat(),
+                'temperature': metric.get('temp', 0),
+                'dew_point': dew_point,
+                'humidity': obs.get('humidity', 0),
+                'wind_speed': metric.get('windSpeed', 0),
+                'wind_gust': metric.get('windGust', 0),
+                'wind_direction': obs.get('winddir', 0),
+                'pressure': metric.get('pressure', 0),
+                'precip_rate': metric.get('precipRate', 0),
+                'precip_total': metric.get('precipTotal', 0)
+            }
+            
+            weather_data_2.append(new_data)
+            
+            # Keep only last 24 hours of data in memory
+            while len(weather_data_2) > 288:  # 288 = 24 hours * 12 (5-minute intervals)
+                weather_data_2.pop(0)
+                
+            return new_data
     except Exception as e:
-        print(f"Error fetching METAR data: {e}")
+        print(f"Error fetching station 2 data: {e}")
+        return None
+
+def fetch_openweather_data_2():
+    """Fetch OpenWeather data for the second station location."""
+    url = f"https://api.openweathermap.org/data/2.5/weather?lat={STATION2_LAT}&lon={STATION2_LON}&appid={OPENWEATHER_API_KEY}&units=metric"
+    try:
+        response = requests.get(url)
+        data = response.json()
+        main_data = data.get('main', {})
+        wind_data = data.get('wind', {})
+        rain_data = data.get('rain', {})
+        
+        new_data = {
+            'timestamp': datetime.now().isoformat(),
+            'temperature': main_data.get('temp', 0),
+            'humidity': main_data.get('humidity', 0),
+            'pressure': main_data.get('pressure', 0),
+            'wind_speed': wind_data.get('speed', 0),
+            'wind_gust': wind_data.get('gust', 0),
+            'wind_direction': wind_data.get('deg', 0),
+            'precip_rate': rain_data.get('1h', 0),  # mm/hour
+            'precip_total': rain_data.get('3h', 0)  # mm/3hours
+        }
+        
+        openweather_data_2.append(new_data)
+        
+        while len(openweather_data_2) > 288:
+            openweather_data_2.pop(0)
+            
+        return new_data
+    except Exception as e:
+        print(f"Error fetching OpenWeather data for station 2: {e}")
         return None
 
 def process_visibility_data():
@@ -398,7 +434,7 @@ def process_visibility_data():
                 continue
 
             # Use the latest weather data
-            latest_weather_data = weather_data[-1] if weather_data else {}
+            latest_weather_data = weather_data_1[-1] if weather_data_1 else {}
 
             # Process the frame and calculate metrics
             metrics = process_frame_with_sampling(snapshot, rois, latest_weather_data)
@@ -476,18 +512,18 @@ def index():
 
 @app.route('/api/current')
 def current_data():
-    if weather_data:
+    if weather_data_1:
         return jsonify({
-            'station_data': weather_data[-1],
-            'openweather_data': openweather_data[-1] if openweather_data else None
+            'station_data': weather_data_1[-1],
+            'openweather_data': openweather_data_1[-1] if openweather_data_1 else None
         })
     return jsonify({'error': 'No data available'})
 
 @app.route('/api/history')
 def history_data():
     return jsonify({
-        'station_data': weather_data,
-        'openweather_data': openweather_data
+        'station_data': weather_data_1,
+        'openweather_data': openweather_data_1
     })
 
 @app.route('/download/csv')
@@ -507,8 +543,8 @@ def download_csv():
 @app.route('/api/refresh')
 def refresh_data():
     try:
-        station_data = fetch_station_data()
-        openweather_data = fetch_openweather_data()
+        station_data = fetch_station_data_1()
+        openweather_data = fetch_openweather_data_1()
         
         if station_data and openweather_data:
             save_to_csv(station_data, openweather_data)
@@ -1025,7 +1061,7 @@ def refresh_camera():
             return jsonify({'error': 'Invalid frame data'}), 400
         
         # Use the latest weather data
-        latest_weather_data = weather_data[-1] if weather_data else {}
+        latest_weather_data = weather_data_1[-1] if weather_data_1 else {}
 
         # Process frame and calculate metrics
         metrics = process_frame_with_sampling(frame, rois, latest_weather_data)
@@ -1121,81 +1157,10 @@ def visibility_history():
         print(f"Error in visibility_history route: {str(e)}")
         return render_template('visibility_history.html', error="Failed to load visibility history")
 
-def fetch_station_data_2():
-    """Fetch data from the second weather station."""
-    url = f"https://api.weather.com/v2/pws/observations/current?stationId={STATION_ID_2}&format=json&units=m&apiKey={WEATHER_STATION_API_KEY}"
-    try:
-        response = requests.get(url)
-        data = response.json()
-        if "observations" in data and data["observations"]:
-            obs = data["observations"][0]
-            metric = obs.get('metric', {})
-            
-            # Calculate dew point if not provided
-            temp = metric.get('temp', 0)
-            humidity = obs.get('humidity', 0)
-            dew_point = temp - ((100 - humidity) / 5)  # Approximate calculation
-            
-            new_data = {
-                'timestamp': datetime.now().isoformat(),
-                'temperature': metric.get('temp', 0),
-                'dew_point': dew_point,
-                'humidity': obs.get('humidity', 0),
-                'wind_speed': metric.get('windSpeed', 0),
-                'wind_gust': metric.get('windGust', 0),
-                'wind_direction': obs.get('winddir', 0),
-                'pressure': metric.get('pressure', 0),
-                'precip_rate': metric.get('precipRate', 0),
-                'precip_total': metric.get('precipTotal', 0)
-            }
-            
-            weather_data_2.append(new_data)
-            
-            # Keep only last 24 hours of data in memory
-            while len(weather_data_2) > 288:  # 288 = 24 hours * 12 (5-minute intervals)
-                weather_data_2.pop(0)
-                
-            return new_data
-    except Exception as e:
-        print(f"Error fetching station 2 data: {e}")
-        return None
-
-def fetch_openweather_data_2():
-    """Fetch OpenWeather data for the second station location."""
-    url = f"https://api.openweathermap.org/data/2.5/weather?lat={STATION2_LAT}&lon={STATION2_LON}&appid={OPENWEATHER_API_KEY}&units=metric"
-    try:
-        response = requests.get(url)
-        data = response.json()
-        main_data = data.get('main', {})
-        wind_data = data.get('wind', {})
-        rain_data = data.get('rain', {})
-        
-        new_data = {
-            'timestamp': datetime.now().isoformat(),
-            'temperature': main_data.get('temp', 0),
-            'humidity': main_data.get('humidity', 0),
-            'pressure': main_data.get('pressure', 0),
-            'wind_speed': wind_data.get('speed', 0),
-            'wind_gust': wind_data.get('gust', 0),
-            'wind_direction': wind_data.get('deg', 0),
-            'precip_rate': rain_data.get('1h', 0),  # mm/hour
-            'precip_total': rain_data.get('3h', 0)  # mm/3hours
-        }
-        
-        openweather_data_2.append(new_data)
-        
-        while len(openweather_data_2) > 288:
-            openweather_data_2.pop(0)
-            
-        return new_data
-    except Exception as e:
-        print(f"Error fetching OpenWeather data for station 2: {e}")
-        return None
-
-def save_to_csv_2(station_data, openweather_data):
-    """Save weather data for the second station to CSV."""
+def save_to_csv_1(station_data, openweather_data):
+    """Save weather data for the first station to CSV."""
     today = datetime.now().strftime("%Y-%m-%d")
-    filename = os.path.join(DATA_DIR, f"weather_data_2_{today}.csv")
+    filename = os.path.join(DATA_DIR, f"weather_data_1_{today}.csv")
     
     # Combine both data sources
     combined_data = {
@@ -1227,6 +1192,54 @@ def save_to_csv_2(station_data, openweather_data):
         df.to_csv(filename, mode='a', header=False, index=False)
     else:
         df.to_csv(filename, index=False)
+
+@app.route('/api/weather/station1')
+def station1_data():
+    """API endpoint for first weather station data."""
+    if weather_data_1:
+        return jsonify({
+            'station_data': weather_data_1[-1],
+            'openweather_data': openweather_data_1[-1] if openweather_data_1 else None
+        })
+    return jsonify({'error': 'No data available'})
+
+@app.route('/api/weather/station1/history')
+def station1_history():
+    """API endpoint for first weather station historical data."""
+    return jsonify({
+        'station_data': weather_data_1,
+        'openweather_data': openweather_data_1
+    })
+
+@app.route('/download/station1/csv')
+def download_station1_csv():
+    """Download CSV data for the first weather station."""
+    today = datetime.now().strftime("%Y-%m-%d")
+    filename = os.path.join(DATA_DIR, f"weather_data_1_{today}.csv")
+    
+    if os.path.exists(filename):
+        return send_file(
+            filename,
+            mimetype='text/csv',
+            as_attachment=True,
+            download_name=f"weather_data_1_{today}.csv"
+        )
+    return "No data available for download", 404
+
+@app.route('/api/refresh/station1')
+def refresh_station1_data():
+    """Refresh data for the first weather station."""
+    try:
+        station_data = fetch_station_data_1()
+        openweather_data = fetch_openweather_data_1()
+        
+        if station_data and openweather_data:
+            save_to_csv_1(station_data, openweather_data)
+            return jsonify({'status': 'success', 'message': 'Data refreshed successfully'})
+        else:
+            return jsonify({'status': 'error', 'message': 'Failed to fetch data from one or more sources'}), 500
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
 
 @app.route('/api/weather/station2')
 def station2_data():
@@ -1308,18 +1321,18 @@ if __name__ == '__main__':
         scheduler = BackgroundScheduler(timezone=utc)
         
         # Add jobs to scheduler
-        scheduler.add_job(fetch_station_data, 'interval', minutes=5, id='fetch_station_data')
-        scheduler.add_job(fetch_openweather_data, 'interval', minutes=5, id='fetch_openweather_data')
-        scheduler.add_job(fetch_station_data_2, 'interval', minutes=5, id='fetch_station_data_2')
-        scheduler.add_job(fetch_openweather_data_2, 'interval', minutes=5, id='fetch_openweather_data_2')
+        scheduler.add_job(fetch_station_data_1, 'interval', minutes=5, id='fetch_station1_data')
+        scheduler.add_job(fetch_openweather_data_1, 'interval', minutes=5, id='fetch_openweather1_data')
+        scheduler.add_job(fetch_station_data_2, 'interval', minutes=5, id='fetch_station2_data')
+        scheduler.add_job(fetch_openweather_data_2, 'interval', minutes=5, id='fetch_openweather2_data')
         scheduler.add_job(process_visibility_data, 'interval', minutes=10, id='process_visibility_data')
         
         # Start the scheduler
         scheduler.start()
         
         # Fetch initial data
-        fetch_station_data()
-        fetch_openweather_data()
+        fetch_station_data_1()
+        fetch_openweather_data_1()
         fetch_station_data_2()
         fetch_openweather_data_2()
         
